@@ -1,4 +1,4 @@
-import type { DocumentParagraph } from "../parser/types";
+import type { DocumentParagraph, Occurrence } from "../parser/types";
 import { sampleContract } from "../parser/sampleContract";
 
 export interface OfficeEnvironment {
@@ -90,14 +90,23 @@ export function onSelectionChanged(handler: (selectedText: string) => void): () 
 
 export async function selectParagraph(paragraphId: string | undefined, paragraphIndex: number | undefined): Promise<void> {
   if (!isWordAvailable()) return;
+  if (paragraphId) {
+    try {
+      await Word.run(async (context) => {
+        const paragraph = context.document.getParagraphByUniqueLocalId(paragraphId);
+        paragraph.getRange().select(Word.SelectionMode.select);
+        await context.sync();
+      });
+      return;
+    } catch {
+      // Fall back to paragraph index; unique local IDs can become stale after reloads.
+    }
+  }
 
   await Word.run(async (context) => {
     let range: Word.Range | undefined;
 
-    if (paragraphId && "getParagraphByUniqueLocalId" in context.document) {
-      const paragraph = context.document.getParagraphByUniqueLocalId(paragraphId);
-      range = paragraph.getRange();
-    } else if (typeof paragraphIndex === "number") {
+    if (typeof paragraphIndex === "number") {
       const paragraphs = context.document.body.paragraphs;
       paragraphs.load("items");
       await context.sync();
@@ -111,6 +120,66 @@ export async function selectParagraph(paragraphId: string | undefined, paragraph
   });
 }
 
+export async function selectOccurrence(
+  occurrence: Occurrence | undefined,
+  occurrenceIndexInParagraph: number,
+): Promise<void> {
+  if (!occurrence) return;
+  if (!isWordAvailable()) return;
+
+  if (occurrence.paragraphId) {
+    try {
+      await selectOccurrenceInParagraph(occurrence, occurrenceIndexInParagraph, occurrence.paragraphId);
+      return;
+    } catch {
+      // Fall back to paragraph index; cached scans can contain stale unique local IDs.
+    }
+  }
+
+  await selectOccurrenceInParagraph(occurrence, occurrenceIndexInParagraph);
+}
+
+async function selectOccurrenceInParagraph(
+  occurrence: Occurrence,
+  occurrenceIndexInParagraph: number,
+  paragraphId?: string,
+): Promise<void> {
+  await Word.run(async (context) => {
+    const paragraph = await getParagraph(context, paragraphId, occurrence.paragraphIndex);
+
+    if (!paragraph) return;
+
+    const ranges = paragraph.search(occurrence.term, {
+      matchCase: false,
+      matchWholeWord: true,
+    });
+    ranges.load("items");
+    await context.sync();
+
+    const fallbackRanges =
+      ranges.items.length === 0
+        ? paragraph.search(occurrence.term, {
+            matchCase: false,
+            matchWholeWord: false,
+          })
+        : undefined;
+
+    if (fallbackRanges) {
+      fallbackRanges.load("items");
+      await context.sync();
+    }
+
+    const candidates = ranges.items.length ? ranges.items : fallbackRanges?.items ?? [];
+    const range = candidates[occurrenceIndexInParagraph];
+    if (range) {
+      range.select(Word.SelectionMode.select);
+    } else {
+      paragraph.select(Word.SelectionMode.select);
+    }
+    await context.sync();
+  });
+}
+
 export function isWordAvailable(): boolean {
   return Boolean(window.Office?.context?.document && "Word" in window && window.Word);
 }
@@ -118,6 +187,21 @@ export function isWordAvailable(): boolean {
 function getParagraphId(paragraph: Word.Paragraph, index: number): string {
   const localId = (paragraph as Word.Paragraph & { uniqueLocalId?: string }).uniqueLocalId;
   return localId || `paragraph-${index}`;
+}
+
+async function getParagraph(
+  context: Word.RequestContext,
+  paragraphId: string | undefined,
+  paragraphIndex: number,
+): Promise<Word.Paragraph | undefined> {
+  if (paragraphId && "getParagraphByUniqueLocalId" in context.document) {
+    return context.document.getParagraphByUniqueLocalId(paragraphId);
+  }
+
+  const paragraphs = context.document.body.paragraphs;
+  paragraphs.load("items");
+  await context.sync();
+  return paragraphs.items[paragraphIndex];
 }
 
 function hashString(value: string): string {

@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUpRight,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Database,
   Eraser,
   Highlighter,
@@ -15,12 +17,13 @@ import {
   getDocumentKey,
   onSelectionChanged,
   readDocumentParagraphs,
+  selectOccurrence,
   selectParagraph,
   supportsAnnotations,
   waitForOffice,
 } from "../office/wordClient";
 import { findDefinitionForText, scanDocument } from "../parser/scan";
-import type { DefinitionEntry, DocumentParagraph, ScanResult } from "../parser/types";
+import type { DefinitionEntry, DocumentParagraph, Occurrence, ScanResult } from "../parser/types";
 import {
   clearCachedScan,
   loadCachedScan,
@@ -28,6 +31,7 @@ import {
   saveCachedScan,
   saveSettings,
   type AppSettings,
+  type InlineMode,
 } from "../storage/localStore";
 
 type Status = "idle" | "loading" | "ready" | "warning" | "error";
@@ -36,6 +40,7 @@ export function App() {
   const [settings, setSettings] = useState<AppSettings>(() => loadSettings());
   const [scan, setScan] = useState<ScanResult | undefined>();
   const [selectedId, setSelectedId] = useState<string | undefined>();
+  const [selectedOccurrenceIndex, setSelectedOccurrenceIndex] = useState(0);
   const [query, setQuery] = useState("");
   const [documentKey, setDocumentKey] = useState<string>("demo-document");
   const [status, setStatus] = useState<{ type: Status; message: string }>({
@@ -47,6 +52,7 @@ export function App() {
 
   const paragraphsRef = useRef<DocumentParagraph[]>([]);
   const scanRef = useRef<ScanResult | undefined>();
+  const suppressSelectionUntilRef = useRef(0);
 
   useEffect(() => {
     saveSettings(settings);
@@ -76,15 +82,19 @@ export function App() {
         const cached = loadCachedScan(key);
         if (cached) {
           setScan(cached);
+          setSelectedId(cached.definitions[0]?.id);
+          setSelectedOccurrenceIndex(0);
           setStatus({ type: "ready", message: "Lokal gespeicherter Scan geladen" });
         }
       }
 
       unsubscribeSelection = onSelectionChanged((selectedText) => {
+        if (Date.now() < suppressSelectionUntilRef.current) return;
+
         const currentScan = scanRef.current;
         if (!currentScan || !selectedText.trim()) return;
         const definition = findDefinitionForText(selectedText, currentScan.definitions);
-        if (definition) setSelectedId(definition.id);
+        if (definition) activateDefinition(definition.id);
       });
     }
 
@@ -97,6 +107,11 @@ export function App() {
 
   const selectedDefinition = useMemo(
     () => scan?.definitions.find((definition) => definition.id === selectedId),
+    [scan, selectedId],
+  );
+
+  const activeOccurrences = useMemo(
+    () => scan?.occurrences.filter((occurrence) => occurrence.definitionId === selectedId) ?? [],
     [scan, selectedId],
   );
 
@@ -119,6 +134,34 @@ export function App() {
     return counts;
   }, [scan]);
 
+  useEffect(() => {
+    if (settings.inlineMode !== "selected" || !scan || !selectedId || !annotationsAvailable) return;
+
+    const currentScan = scan;
+    const currentSelectedId = selectedId;
+    let cancelled = false;
+    async function refreshSelectedAnnotations() {
+      try {
+        const paragraphs = await ensureParagraphs();
+        if (!cancelled) {
+          await applyAnnotations(currentScan, paragraphs, "selected", currentSelectedId);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setStatus({
+            type: "error",
+            message: error instanceof Error ? error.message : "Inline-Markierungen fehlgeschlagen",
+          });
+        }
+      }
+    }
+
+    void refreshSelectedAnnotations();
+    return () => {
+      cancelled = true;
+    };
+  }, [annotationsAvailable, scan, selectedId, settings.inlineMode]);
+
   async function handleScan() {
     setStatus({ type: "loading", message: "Dokument wird lokal gescannt" });
     setInlineCount(0);
@@ -127,21 +170,24 @@ export function App() {
       const paragraphs = await readDocumentParagraphs();
       paragraphsRef.current = paragraphs;
       const result = scanDocument(paragraphs, { language: settings.language });
+      const firstDefinitionId = result.definitions[0]?.id;
       setScan(result);
-      setSelectedId(result.definitions[0]?.id);
+      setSelectedId(firstDefinitionId);
+      setSelectedOccurrenceIndex(0);
 
       if (settings.persistDefinitions) {
         saveCachedScan(documentKey, result);
       }
 
-      if (settings.inlineMode) {
-        await applyAnnotations(result, paragraphs);
+      if (annotationsAvailable && settings.inlineMode === "all") {
+        await applyAnnotations(result, paragraphs, "all");
+      } else {
+        await clearInlineAnnotations();
+        setStatus({
+          type: result.warnings.length ? "warning" : "ready",
+          message: `${result.stats.definitionsFound} Definitionen, ${result.stats.occurrencesFound} Vorkommen`,
+        });
       }
-
-      setStatus({
-        type: result.warnings.length ? "warning" : "ready",
-        message: `${result.stats.definitionsFound} Definitionen, ${result.stats.occurrencesFound} Vorkommen`,
-      });
     } catch (error) {
       setStatus({
         type: "error",
@@ -150,11 +196,11 @@ export function App() {
     }
   }
 
-  async function handleInlineToggle(nextInlineMode: boolean) {
+  async function handleInlineModeChange(nextInlineMode: InlineMode) {
     setSettings((current) => ({ ...current, inlineMode: nextInlineMode }));
     setInlineCount(0);
 
-    if (!nextInlineMode) {
+    if (nextInlineMode === "off") {
       await clearInlineAnnotations();
       setStatus({ type: "ready", message: "Inline-Markierungen entfernt" });
       return;
@@ -165,23 +211,51 @@ export function App() {
       return;
     }
 
-    await applyAnnotations(scan, paragraphsRef.current.length ? paragraphsRef.current : await readDocumentParagraphs());
+    try {
+      const paragraphs = await ensureParagraphs();
+      await applyAnnotations(scan, paragraphs, nextInlineMode, selectedId);
+    } catch (error) {
+      setStatus({
+        type: "error",
+        message: error instanceof Error ? error.message : "Inline-Markierungen fehlgeschlagen",
+      });
+    }
   }
 
-  async function applyAnnotations(result: ScanResult, paragraphs: DocumentParagraph[]) {
+  async function applyAnnotations(
+    result: ScanResult,
+    paragraphs: DocumentParagraph[],
+    inlineMode: Exclude<InlineMode, "off">,
+    definitionId?: string,
+  ) {
     if (!annotationsAvailable) {
       throw new Error("Inline-Modus ist in dieser Word-Version nicht verfügbar.");
     }
 
+    const visibleDefinitions =
+      inlineMode === "all"
+        ? result.definitions
+        : result.definitions.filter((definition) => definition.id === definitionId);
+    const uncappedOccurrences =
+      inlineMode === "all"
+        ? result.occurrences
+        : result.occurrences.filter((occurrence) => occurrence.definitionId === definitionId);
+
     setStatus({ type: "loading", message: "Inline-Markierungen werden erzeugt" });
     const count = await applyInlineAnnotations(
       paragraphs,
-      result.definitions,
-      result.occurrences,
-      (definitionId) => setSelectedId(definitionId),
+      visibleDefinitions,
+      uncappedOccurrences,
+      activateDefinition,
     );
     setInlineCount(count);
-    setStatus({ type: "ready", message: `${count} Inline-Markierungen aktiv` });
+    setStatus({
+      type: "ready",
+      message:
+        inlineMode === "all"
+          ? `${count} Inline-Markierungen aktiv`
+          : `${count} Markierungen für aktuellen Begriff`,
+    });
   }
 
   async function handleClearCache() {
@@ -189,9 +263,44 @@ export function App() {
     await clearInlineAnnotations();
     setScan(undefined);
     setSelectedId(undefined);
+    setSelectedOccurrenceIndex(0);
     setInlineCount(0);
-    setSettings((current) => ({ ...current, inlineMode: false }));
+    setSettings((current) => ({ ...current, inlineMode: "off" }));
     setStatus({ type: "ready", message: "Lokale Daten für dieses Dokument gelöscht" });
+  }
+
+  function activateDefinition(definitionId: string, occurrenceId?: string) {
+    const currentScan = scanRef.current;
+    const isSameDefinition = definitionId === selectedId;
+    setSelectedId(definitionId);
+
+    const definitionOccurrences =
+      currentScan?.occurrences.filter((occurrence) => occurrence.definitionId === definitionId) ?? [];
+    const occurrenceIndex = occurrenceId
+      ? definitionOccurrences.findIndex((occurrence) => occurrence.id === occurrenceId)
+      : -1;
+    if (occurrenceIndex >= 0) {
+      setSelectedOccurrenceIndex(occurrenceIndex);
+    } else if (!isSameDefinition) {
+      setSelectedOccurrenceIndex(0);
+    }
+  }
+
+  async function ensureParagraphs(): Promise<DocumentParagraph[]> {
+    if (paragraphsRef.current.length) return paragraphsRef.current;
+    const paragraphs = await readDocumentParagraphs();
+    paragraphsRef.current = paragraphs;
+    return paragraphs;
+  }
+
+  async function handleOccurrenceJump(nextIndex: number) {
+    if (!activeOccurrences.length) return;
+
+    const boundedIndex = Math.min(Math.max(nextIndex, 0), activeOccurrences.length - 1);
+    const occurrence = activeOccurrences[boundedIndex];
+    setSelectedOccurrenceIndex(boundedIndex);
+    suppressSelectionUntilRef.current = Date.now() + 1200;
+    await selectOccurrence(occurrence, getOccurrenceIndexInParagraph(occurrence, activeOccurrences));
   }
 
   function updateSettings(update: Partial<AppSettings>) {
@@ -226,16 +335,21 @@ export function App() {
           </select>
         </label>
 
-        <button
-          className={settings.inlineMode ? "toggle-button active" : "toggle-button"}
-          type="button"
-          onClick={() => void handleInlineToggle(!settings.inlineMode)}
-          disabled={!scan || !annotationsAvailable || status.type === "loading"}
-          title={annotationsAvailable ? "Inline-Markierungen umschalten" : "WordApi 1.8 erforderlich"}
-        >
-          <Highlighter size={16} />
-          Inline
-        </button>
+        <label className="field inline-field" title={annotationsAvailable ? "Inline-Modus wählen" : "WordApi 1.8 erforderlich"}>
+          <span>
+            <Highlighter size={13} />
+            Inline
+          </span>
+          <select
+            value={settings.inlineMode}
+            onChange={(event) => void handleInlineModeChange(event.target.value as InlineMode)}
+            disabled={!scan || !annotationsAvailable || status.type === "loading"}
+          >
+            <option value="off">Aus</option>
+            <option value="selected">Aktuell</option>
+            <option value="all">Alle</option>
+          </select>
+        </label>
 
         <button className="icon-button" type="button" onClick={() => void handleClearCache()} title="Lokalen Cache löschen">
           <Eraser size={16} />
@@ -264,6 +378,19 @@ export function App() {
         </section>
       ) : null}
 
+      <DefinitionDetails
+        definition={selectedDefinition}
+        occurrenceCount={selectedId ? occurrenceCountByDefinition.get(selectedId) ?? 0 : 0}
+        activeOccurrences={activeOccurrences}
+        selectedOccurrenceIndex={selectedOccurrenceIndex}
+        inlineCount={inlineCount}
+        onJumpDefinition={() =>
+          void selectParagraph(selectedDefinition?.paragraphId, selectedDefinition?.paragraphIndex)
+        }
+        onPreviousOccurrence={() => void handleOccurrenceJump(selectedOccurrenceIndex - 1)}
+        onNextOccurrence={() => void handleOccurrenceJump(selectedOccurrenceIndex + 1)}
+      />
+
       <section className="search-row">
         <Search size={16} />
         <input
@@ -279,16 +406,7 @@ export function App() {
           definitions={filteredDefinitions}
           occurrenceCountByDefinition={occurrenceCountByDefinition}
           selectedId={selectedId}
-          onSelect={setSelectedId}
-        />
-
-        <DefinitionDetails
-          definition={selectedDefinition}
-          occurrenceCount={selectedId ? occurrenceCountByDefinition.get(selectedId) ?? 0 : 0}
-          inlineCount={inlineCount}
-          onJump={() =>
-            void selectParagraph(selectedDefinition?.paragraphId, selectedDefinition?.paragraphIndex)
-          }
+          onSelect={(definitionId) => activateDefinition(definitionId)}
         />
       </section>
     </main>
@@ -320,9 +438,7 @@ function DefinitionList({
           onClick={() => onSelect(definition.id)}
         >
           <span className="definition-term">{definition.term}</span>
-          <span className="definition-meta">
-            {definition.language.toUpperCase()} · {occurrenceCountByDefinition.get(definition.id) ?? 0}
-          </span>
+          <span className="definition-meta">{occurrenceCountByDefinition.get(definition.id) ?? 0}</span>
         </button>
       ))}
     </nav>
@@ -332,35 +448,71 @@ function DefinitionList({
 function DefinitionDetails({
   definition,
   occurrenceCount,
+  activeOccurrences,
+  selectedOccurrenceIndex,
   inlineCount,
-  onJump,
+  onJumpDefinition,
+  onPreviousOccurrence,
+  onNextOccurrence,
 }: {
   definition?: DefinitionEntry;
   occurrenceCount: number;
+  activeOccurrences: Occurrence[];
+  selectedOccurrenceIndex: number;
   inlineCount: number;
-  onJump: () => void;
+  onJumpDefinition: () => void;
+  onPreviousOccurrence: () => void;
+  onNextOccurrence: () => void;
 }) {
   if (!definition) {
     return (
-      <article className="definition-detail empty-state">
+      <article className="definition-detail active-detail empty-state">
         Scanne das Dokument oder wähle einen Begriff aus.
       </article>
     );
   }
 
+  const selectedOccurrence = activeOccurrences[selectedOccurrenceIndex];
+  const occurrencePosition = activeOccurrences.length ? selectedOccurrenceIndex + 1 : 0;
+
   return (
-    <article className="definition-detail">
+    <article className="definition-detail active-detail">
       <div className="detail-heading">
         <div>
-          <span className="eyebrow">{definition.language.toUpperCase()}</span>
           <h2>{definition.term}</h2>
         </div>
-        <button className="icon-button" type="button" onClick={onJump} title="Zur Definition springen">
+        <button className="icon-button" type="button" onClick={onJumpDefinition} title="Zur Definition springen">
           <ArrowUpRight size={17} />
         </button>
       </div>
 
       <p className="definition-copy">{definition.definition}</p>
+
+      <div className="occurrence-nav" aria-label="Vorkommen">
+        <button
+          className="small-nav-button"
+          type="button"
+          onClick={onPreviousOccurrence}
+          disabled={selectedOccurrenceIndex <= 0}
+          title="Voriges Vorkommen"
+        >
+          <ChevronLeft size={16} />
+        </button>
+        <span>
+          Vorkommen {occurrencePosition} / {activeOccurrences.length}
+        </span>
+        <button
+          className="small-nav-button"
+          type="button"
+          onClick={onNextOccurrence}
+          disabled={!activeOccurrences.length || selectedOccurrenceIndex >= activeOccurrences.length - 1}
+          title="Nächstes Vorkommen"
+        >
+          <ChevronRight size={16} />
+        </button>
+      </div>
+
+      {selectedOccurrence ? <p className="occurrence-context">{selectedOccurrence.context}</p> : null}
 
       <dl className="definition-facts">
         <div>
@@ -372,7 +524,7 @@ function DefinitionDetails({
           <dd>{definition.source}</dd>
         </div>
         <div>
-          <dt>Inline</dt>
+          <dt>Markiert</dt>
           <dd>{inlineCount}</dd>
         </div>
       </dl>
@@ -386,4 +538,13 @@ function StatusBadge({ status }: { status: Status }) {
   if (status === "warning") return <CheckCircle2 className="status-icon warn" size={18} />;
   if (status === "error") return <CheckCircle2 className="status-icon error" size={18} />;
   return null;
+}
+
+function getOccurrenceIndexInParagraph(occurrence: Occurrence, activeOccurrences: Occurrence[]): number {
+  return activeOccurrences.filter(
+    (item) =>
+      item.paragraphIndex === occurrence.paragraphIndex &&
+      item.paragraphId === occurrence.paragraphId &&
+      item.start < occurrence.start,
+  ).length;
 }

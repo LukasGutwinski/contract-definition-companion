@@ -1,13 +1,19 @@
 import type { DefinitionEntry, DocumentParagraph, Occurrence } from "../parser/types";
 
-type AnnotationSelectionHandler = (definitionId: string) => void;
+type AnnotationSelectionHandler = (definitionId: string, occurrenceId?: string) => void;
 
 let createdAnnotationIds: string[] = [];
 let annotationToDefinitionId = new Map<string, string>();
+let annotationToOccurrenceId = new Map<string, string>();
 let eventContexts: OfficeExtension.EventHandlerResult<unknown>[] = [];
 
+interface PendingAnnotationGroup {
+  occurrences: Occurrence[];
+  result: OfficeExtension.ClientResult<string[]>;
+}
+
 export async function applyInlineAnnotations(
-  paragraphs: DocumentParagraph[],
+  _paragraphs: DocumentParagraph[],
   definitions: DefinitionEntry[],
   occurrences: Occurrence[],
   onSelectDefinition: AnnotationSelectionHandler,
@@ -29,12 +35,18 @@ export async function applyInlineAnnotations(
   }
 
   await Word.run(async (context) => {
-    for (const [paragraphKey, paragraphOccurrences] of grouped) {
-      const paragraph = getParagraph(context, paragraphs, paragraphKey, paragraphOccurrences[0].paragraphIndex);
+    const bodyParagraphs = context.document.body.paragraphs;
+    bodyParagraphs.load("items");
+    await context.sync();
+
+    const pendingGroups: PendingAnnotationGroup[] = [];
+
+    for (const paragraphOccurrences of grouped.values()) {
+      const paragraph = bodyParagraphs.items[paragraphOccurrences[0].paragraphIndex];
       if (!paragraph) continue;
 
-      const critiques: Word.Critique[] = paragraphOccurrences.slice(0, 40).map((occurrence) => ({
-        colorScheme: Word.CritiqueColorScheme.blue,
+      const critiques: Word.Critique[] = paragraphOccurrences.map((occurrence) => ({
+        colorScheme: Word.CritiqueColorScheme.berry,
         start: occurrence.start,
         length: occurrence.length,
         popupOptions: {
@@ -46,13 +58,23 @@ export async function applyInlineAnnotations(
       }));
 
       const ids = paragraph.insertAnnotations({ critiques });
-      await context.sync();
+      pendingGroups.push({
+        occurrences: paragraphOccurrences,
+        result: ids,
+      });
+    }
 
-      const annotationIds = ids.value ?? [];
+    await context.sync();
+
+    for (const group of pendingGroups) {
+      const annotationIds = group.result.value ?? [];
       createdAnnotationIds.push(...annotationIds);
       annotationIds.forEach((annotationId, index) => {
-        const occurrence = paragraphOccurrences[index];
-        if (occurrence) annotationToDefinitionId.set(annotationId, occurrence.definitionId);
+        const occurrence = group.occurrences[index];
+        if (occurrence) {
+          annotationToDefinitionId.set(annotationId, occurrence.definitionId);
+          annotationToOccurrenceId.set(annotationId, occurrence.id);
+        }
       });
     }
   });
@@ -64,23 +86,16 @@ export async function clearInlineAnnotations(): Promise<void> {
   if (!createdAnnotationIds.length || !window.Word) {
     createdAnnotationIds = [];
     annotationToDefinitionId = new Map();
+    annotationToOccurrenceId = new Map();
     return;
   }
 
   const idsToDelete = [...createdAnnotationIds];
   createdAnnotationIds = [];
   annotationToDefinitionId = new Map();
+  annotationToOccurrenceId = new Map();
 
-  await Word.run(async (context) => {
-    for (const id of idsToDelete) {
-      try {
-        context.document.getAnnotationById(id).delete();
-      } catch {
-        // The annotation can already be gone after a document refresh.
-      }
-    }
-    await context.sync();
-  });
+  await deleteAnnotationIds(idsToDelete);
 }
 
 export async function disposeAnnotationEvents(): Promise<void> {
@@ -90,8 +105,12 @@ export async function disposeAnnotationEvents(): Promise<void> {
   eventContexts = [];
 
   for (const eventContext of contexts) {
-    eventContext.remove();
-    await eventContext.context.sync();
+    try {
+      eventContext.remove();
+      await eventContext.context.sync();
+    } catch {
+      // Event handlers can already be detached after Word reloads the task pane.
+    }
   }
 }
 
@@ -102,11 +121,7 @@ async function registerAnnotationEvents(onSelectDefinition: AnnotationSelectionH
     eventContexts = [
       context.document.onAnnotationClicked.add(async (args) => {
         const definitionId = annotationToDefinitionId.get(args.id);
-        if (definitionId) onSelectDefinition(definitionId);
-      }),
-      context.document.onAnnotationHovered.add(async (args) => {
-        const definitionId = annotationToDefinitionId.get(args.id);
-        if (definitionId) onSelectDefinition(definitionId);
+        if (definitionId) onSelectDefinition(definitionId, annotationToOccurrenceId.get(args.id));
       }),
     ];
 
@@ -114,20 +129,30 @@ async function registerAnnotationEvents(onSelectDefinition: AnnotationSelectionH
   });
 }
 
-function getParagraph(
-  context: Word.RequestContext,
-  paragraphs: DocumentParagraph[],
-  paragraphKey: string,
-  fallbackIndex: number,
-): Word.Paragraph | undefined {
-  if (!paragraphKey.startsWith("index:") && "getParagraphByUniqueLocalId" in context.document) {
-    return context.document.getParagraphByUniqueLocalId(paragraphKey);
+async function deleteAnnotationIds(ids: string[]): Promise<void> {
+  const chunkSize = 25;
+  for (let index = 0; index < ids.length; index += chunkSize) {
+    const chunk = ids.slice(index, index + chunkSize);
+    try {
+      await Word.run(async (context) => {
+        chunk.forEach((id) => context.document.getAnnotationById(id).delete());
+        await context.sync();
+      });
+    } catch {
+      await deleteAnnotationIdsIndividually(chunk);
+    }
   }
+}
 
-  const paragraph = paragraphs.find((item) => item.index === fallbackIndex);
-  if (paragraph?.id && "getParagraphByUniqueLocalId" in context.document) {
-    return context.document.getParagraphByUniqueLocalId(paragraph.id);
+async function deleteAnnotationIdsIndividually(ids: string[]): Promise<void> {
+  for (const id of ids) {
+    try {
+      await Word.run(async (context) => {
+        context.document.getAnnotationById(id).delete();
+        await context.sync();
+      });
+    } catch {
+      // The annotation may already have been removed by Word or a previous refresh.
+    }
   }
-
-  return undefined;
 }

@@ -5,20 +5,32 @@ const SCAN_PREFIX = "definition-companion:scan:";
 
 export interface AppSettings {
   language: ContractLanguage;
-  inlineMode: boolean;
+  inlineMode: InlineMode;
   persistDefinitions: boolean;
 }
 
+export type InlineMode = "off" | "selected" | "all";
+
 export const DEFAULT_SETTINGS: AppSettings = {
   language: "auto",
-  inlineMode: false,
+  inlineMode: "selected",
   persistDefinitions: true,
 };
 
 export function loadSettings(): AppSettings {
   try {
     const raw = window.localStorage.getItem(SETTINGS_KEY);
-    return raw ? { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } : DEFAULT_SETTINGS;
+    if (!raw) return DEFAULT_SETTINGS;
+
+    const parsed = JSON.parse(raw) as Partial<AppSettings> & { inlineMode?: InlineMode | boolean };
+    const inlineMode =
+      typeof parsed.inlineMode === "boolean"
+        ? parsed.inlineMode
+          ? "selected"
+          : "off"
+        : parsed.inlineMode ?? DEFAULT_SETTINGS.inlineMode;
+
+    return { ...DEFAULT_SETTINGS, ...parsed, inlineMode };
   } catch {
     return DEFAULT_SETTINGS;
   }
