@@ -4,13 +4,11 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  Database,
   Eraser,
   Highlighter,
   ListRestart,
   Loader2,
   Search,
-  ShieldCheck,
 } from "lucide-react";
 import { clearInlineAnnotations, applyInlineAnnotations } from "../office/annotations";
 import {
@@ -30,14 +28,13 @@ import {
   loadSettings,
   saveCachedScan,
   saveSettings,
-  type AppSettings,
   type InlineMode,
 } from "../storage/localStore";
 
 type Status = "idle" | "loading" | "ready" | "warning" | "error";
 
 export function App() {
-  const [settings, setSettings] = useState<AppSettings>(() => loadSettings());
+  const [settings, setSettings] = useState(() => loadSettings());
   const [scan, setScan] = useState<ScanResult | undefined>();
   const [selectedId, setSelectedId] = useState<string | undefined>();
   const [selectedOccurrenceIndex, setSelectedOccurrenceIndex] = useState(0);
@@ -52,6 +49,7 @@ export function App() {
 
   const paragraphsRef = useRef<DocumentParagraph[]>([]);
   const scanRef = useRef<ScanResult | undefined>();
+  const selectedIdRef = useRef<string | undefined>();
   const suppressSelectionUntilRef = useRef(0);
 
   useEffect(() => {
@@ -61,6 +59,10 @@ export function App() {
   useEffect(() => {
     scanRef.current = scan;
   }, [scan]);
+
+  useEffect(() => {
+    selectedIdRef.current = selectedId;
+  }, [selectedId]);
 
   useEffect(() => {
     let unsubscribeSelection: () => void = () => undefined;
@@ -78,14 +80,12 @@ export function App() {
         setStatus({ type: "warning", message: environment.reason ?? "Demo-Modus aktiv" });
       }
 
-      if (settings.persistDefinitions) {
-        const cached = loadCachedScan(key);
-        if (cached) {
-          setScan(cached);
-          setSelectedId(cached.definitions[0]?.id);
-          setSelectedOccurrenceIndex(0);
-          setStatus({ type: "ready", message: "Lokal gespeicherter Scan geladen" });
-        }
+      const cached = loadCachedScan(key);
+      if (cached) {
+        setScan(cached);
+        updateSelectedId(cached.definitions[0]?.id);
+        setSelectedOccurrenceIndex(0);
+        setStatus({ type: "ready", message: "Lokal gespeicherter Scan geladen" });
       }
 
       unsubscribeSelection = onSelectionChanged((selectedText) => {
@@ -103,7 +103,7 @@ export function App() {
       cancelled = true;
       unsubscribeSelection();
     };
-  }, [settings.persistDefinitions]);
+  }, []);
 
   const selectedDefinition = useMemo(
     () => scan?.definitions.find((definition) => definition.id === selectedId),
@@ -134,34 +134,6 @@ export function App() {
     return counts;
   }, [scan]);
 
-  useEffect(() => {
-    if (settings.inlineMode !== "selected" || !scan || !selectedId || !annotationsAvailable) return;
-
-    const currentScan = scan;
-    const currentSelectedId = selectedId;
-    let cancelled = false;
-    async function refreshSelectedAnnotations() {
-      try {
-        const paragraphs = await ensureParagraphs();
-        if (!cancelled) {
-          await applyAnnotations(currentScan, paragraphs, "selected", currentSelectedId);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setStatus({
-            type: "error",
-            message: error instanceof Error ? error.message : "Inline-Markierungen fehlgeschlagen",
-          });
-        }
-      }
-    }
-
-    void refreshSelectedAnnotations();
-    return () => {
-      cancelled = true;
-    };
-  }, [annotationsAvailable, scan, selectedId, settings.inlineMode]);
-
   async function handleScan() {
     setStatus({ type: "loading", message: "Dokument wird lokal gescannt" });
     setInlineCount(0);
@@ -169,19 +141,20 @@ export function App() {
     try {
       const paragraphs = await readDocumentParagraphs();
       paragraphsRef.current = paragraphs;
-      const result = scanDocument(paragraphs, { language: settings.language });
+      const result = scanDocument(paragraphs, { language: "auto" });
       const firstDefinitionId = result.definitions[0]?.id;
       setScan(result);
-      setSelectedId(firstDefinitionId);
+      updateSelectedId(firstDefinitionId);
       setSelectedOccurrenceIndex(0);
 
-      if (settings.persistDefinitions) {
-        saveCachedScan(documentKey, result);
-      }
+      saveCachedScan(documentKey, result);
 
       if (annotationsAvailable && settings.inlineMode === "all") {
         await applyAnnotations(result, paragraphs, "all");
       } else {
+        if (settings.inlineMode !== "off") {
+          setSettings((current) => ({ ...current, inlineMode: "off" }));
+        }
         await clearInlineAnnotations();
         setStatus({
           type: result.warnings.length ? "warning" : "ready",
@@ -196,11 +169,12 @@ export function App() {
     }
   }
 
-  async function handleInlineModeChange(nextInlineMode: InlineMode) {
+  async function handleInlineToggle(enabled: boolean) {
+    const nextInlineMode = enabled ? "all" : "off";
     setSettings((current) => ({ ...current, inlineMode: nextInlineMode }));
     setInlineCount(0);
 
-    if (nextInlineMode === "off") {
+    if (!enabled) {
       await clearInlineAnnotations();
       setStatus({ type: "ready", message: "Inline-Markierungen entfernt" });
       return;
@@ -213,11 +187,29 @@ export function App() {
 
     try {
       const paragraphs = await ensureParagraphs();
-      await applyAnnotations(scan, paragraphs, nextInlineMode, selectedId);
+      await applyAnnotations(scan, paragraphs, "all");
     } catch (error) {
       setStatus({
         type: "error",
         message: error instanceof Error ? error.message : "Inline-Markierungen fehlgeschlagen",
+      });
+    }
+  }
+
+  async function handleHighlightSelectedDefinition() {
+    if (!scan || !selectedId) {
+      setStatus({ type: "warning", message: "Bitte zuerst eine Definition auswählen" });
+      return;
+    }
+
+    try {
+      const paragraphs = await ensureParagraphs();
+      await applyAnnotations(scan, paragraphs, "selected", selectedId);
+      setSettings((current) => ({ ...current, inlineMode: "selected" }));
+    } catch (error) {
+      setStatus({
+        type: "error",
+        message: error instanceof Error ? error.message : "Markierung fehlgeschlagen",
       });
     }
   }
@@ -262,7 +254,7 @@ export function App() {
     clearCachedScan(documentKey);
     await clearInlineAnnotations();
     setScan(undefined);
-    setSelectedId(undefined);
+    updateSelectedId(undefined);
     setSelectedOccurrenceIndex(0);
     setInlineCount(0);
     setSettings((current) => ({ ...current, inlineMode: "off" }));
@@ -271,8 +263,8 @@ export function App() {
 
   function activateDefinition(definitionId: string, occurrenceId?: string) {
     const currentScan = scanRef.current;
-    const isSameDefinition = definitionId === selectedId;
-    setSelectedId(definitionId);
+    const isSameDefinition = definitionId === selectedIdRef.current;
+    updateSelectedId(definitionId);
 
     const definitionOccurrences =
       currentScan?.occurrences.filter((occurrence) => occurrence.definitionId === definitionId) ?? [];
@@ -293,18 +285,35 @@ export function App() {
     return paragraphs;
   }
 
+  function updateSelectedId(nextSelectedId: string | undefined) {
+    selectedIdRef.current = nextSelectedId;
+    setSelectedId(nextSelectedId);
+  }
+
+  function suppressSelectionEvents(durationMs = 2000) {
+    suppressSelectionUntilRef.current = Math.max(
+      suppressSelectionUntilRef.current,
+      Date.now() + durationMs,
+    );
+  }
+
   async function handleOccurrenceJump(nextIndex: number) {
     if (!activeOccurrences.length) return;
 
     const boundedIndex = Math.min(Math.max(nextIndex, 0), activeOccurrences.length - 1);
     const occurrence = activeOccurrences[boundedIndex];
     setSelectedOccurrenceIndex(boundedIndex);
-    suppressSelectionUntilRef.current = Date.now() + 1200;
+    suppressSelectionEvents(3000);
     await selectOccurrence(occurrence, getOccurrenceIndexInParagraph(occurrence, activeOccurrences));
+    suppressSelectionEvents(1200);
   }
 
-  function updateSettings(update: Partial<AppSettings>) {
-    setSettings((current) => ({ ...current, ...update }));
+  async function handleDefinitionJump() {
+    if (!selectedDefinition) return;
+
+    suppressSelectionEvents(3000);
+    await selectParagraph(selectedDefinition.paragraphId, selectedDefinition.paragraphIndex);
+    suppressSelectionEvents(1200);
   }
 
   return (
@@ -323,51 +332,20 @@ export function App() {
           Scan
         </button>
 
-        <label className="field">
-          <span>Sprache</span>
-          <select
-            value={settings.language}
-            onChange={(event) => updateSettings({ language: event.target.value as AppSettings["language"] })}
-          >
-            <option value="auto">Auto</option>
-            <option value="en">EN</option>
-            <option value="de">DE</option>
-          </select>
-        </label>
-
-        <label className="field inline-field" title={annotationsAvailable ? "Inline-Modus wählen" : "WordApi 1.8 erforderlich"}>
-          <span>
-            <Highlighter size={13} />
-            Inline
-          </span>
-          <select
-            value={settings.inlineMode}
-            onChange={(event) => void handleInlineModeChange(event.target.value as InlineMode)}
-            disabled={!scan || !annotationsAvailable || status.type === "loading"}
-          >
-            <option value="off">Aus</option>
-            <option value="selected">Aktuell</option>
-            <option value="all">Alle</option>
-          </select>
-        </label>
+        <button
+          className={settings.inlineMode !== "off" ? "toggle-button active" : "toggle-button"}
+          type="button"
+          onClick={() => void handleInlineToggle(settings.inlineMode === "off")}
+          disabled={!scan || !annotationsAvailable || status.type === "loading"}
+          title={annotationsAvailable ? "Inline-Markierungen ein- oder ausschalten" : "WordApi 1.8 erforderlich"}
+        >
+          <Highlighter size={16} />
+          Inline
+        </button>
 
         <button className="icon-button" type="button" onClick={() => void handleClearCache()} title="Lokalen Cache löschen">
           <Eraser size={16} />
         </button>
-      </section>
-
-      <section className="privacy-row">
-        <ShieldCheck size={16} />
-        <span>Clientseitige Verarbeitung</span>
-        <label className="persist-toggle">
-          <input
-            type="checkbox"
-            checked={settings.persistDefinitions}
-            onChange={(event) => updateSettings({ persistDefinitions: event.target.checked })}
-          />
-          <Database size={14} />
-          Lokal merken
-        </label>
       </section>
 
       {scan?.warnings.length ? (
@@ -384,9 +362,8 @@ export function App() {
         activeOccurrences={activeOccurrences}
         selectedOccurrenceIndex={selectedOccurrenceIndex}
         inlineCount={inlineCount}
-        onJumpDefinition={() =>
-          void selectParagraph(selectedDefinition?.paragraphId, selectedDefinition?.paragraphIndex)
-        }
+        onJumpDefinition={() => void handleDefinitionJump()}
+        onHighlightDefinition={() => void handleHighlightSelectedDefinition()}
         onPreviousOccurrence={() => void handleOccurrenceJump(selectedOccurrenceIndex - 1)}
         onNextOccurrence={() => void handleOccurrenceJump(selectedOccurrenceIndex + 1)}
       />
@@ -452,6 +429,7 @@ function DefinitionDetails({
   selectedOccurrenceIndex,
   inlineCount,
   onJumpDefinition,
+  onHighlightDefinition,
   onPreviousOccurrence,
   onNextOccurrence,
 }: {
@@ -461,6 +439,7 @@ function DefinitionDetails({
   selectedOccurrenceIndex: number;
   inlineCount: number;
   onJumpDefinition: () => void;
+  onHighlightDefinition: () => void;
   onPreviousOccurrence: () => void;
   onNextOccurrence: () => void;
 }) {
@@ -481,9 +460,14 @@ function DefinitionDetails({
         <div>
           <h2>{definition.term}</h2>
         </div>
-        <button className="icon-button" type="button" onClick={onJumpDefinition} title="Zur Definition springen">
-          <ArrowUpRight size={17} />
-        </button>
+        <div className="detail-actions">
+          <button className="icon-button" type="button" onClick={onHighlightDefinition} title="Diesen Begriff markieren">
+            <Highlighter size={17} />
+          </button>
+          <button className="icon-button" type="button" onClick={onJumpDefinition} title="Zur Definition springen">
+            <ArrowUpRight size={17} />
+          </button>
+        </div>
       </div>
 
       <p className="definition-copy">{definition.definition}</p>
@@ -512,7 +496,7 @@ function DefinitionDetails({
         </button>
       </div>
 
-      {selectedOccurrence ? <p className="occurrence-context">{selectedOccurrence.context}</p> : null}
+      {selectedOccurrence ? <OccurrenceContext occurrence={selectedOccurrence} /> : null}
 
       <dl className="definition-facts">
         <div>
@@ -538,6 +522,20 @@ function StatusBadge({ status }: { status: Status }) {
   if (status === "warning") return <CheckCircle2 className="status-icon warn" size={18} />;
   if (status === "error") return <CheckCircle2 className="status-icon error" size={18} />;
   return null;
+}
+
+function OccurrenceContext({ occurrence }: { occurrence: Occurrence }) {
+  if (!occurrence.contextHit) {
+    return <p className="occurrence-context">{occurrence.context}</p>;
+  }
+
+  return (
+    <p className="occurrence-context">
+      {occurrence.contextBefore ? <>{occurrence.contextBefore} </> : null}
+      <mark>{occurrence.contextHit}</mark>
+      {occurrence.contextAfter ? <> {occurrence.contextAfter}</> : null}
+    </p>
+  );
 }
 
 function getOccurrenceIndexInParagraph(occurrence: Occurrence, activeOccurrences: Occurrence[]): number {

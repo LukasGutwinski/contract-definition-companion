@@ -67,26 +67,9 @@ select {
 
 .toolbar {
   display: grid;
-  grid-template-columns: minmax(84px, 1fr) minmax(92px, 1fr) minmax(92px, 1fr) 36px;
+  grid-template-columns: minmax(120px, 1fr) minmax(104px, 1fr) 36px;
   gap: 8px;
-  align-items: end;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.field span {
-  color: #616161;
-  font-size: 11px;
-}
-
-.inline-field span {
-  display: inline-flex;
   align-items: center;
-  gap: 4px;
 }
 
 select,
@@ -146,7 +129,6 @@ button:disabled {
   border: 1px solid #d1d1d1;
 }
 
-.privacy-row,
 .search-row {
   min-height: 36px;
   display: flex;
@@ -154,28 +136,6 @@ button:disabled {
   gap: 8px;
   color: #424242;
   font-size: 13px;
-}
-
-.privacy-row {
-  justify-content: space-between;
-  border-top: 1px solid #e0e0e0;
-  border-bottom: 1px solid #e0e0e0;
-  padding: 8px 0;
-}
-
-.privacy-row > span {
-  flex: 1;
-}
-
-.persist-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  white-space: nowrap;
-}
-
-.persist-toggle input {
-  margin: 0;
 }
 
 .search-row {
@@ -291,6 +251,12 @@ button:disabled {
   font-weight: 650;
 }
 
+.detail-actions {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 8px;
+}
+
 .definition-copy {
   margin: 0;
   color: #242424;
@@ -339,6 +305,13 @@ button:disabled {
   line-height: 1.4;
   max-height: 47px;
   overflow: hidden;
+}
+
+.occurrence-context mark {
+  border-radius: 3px;
+  background: #ffd8a8;
+  color: inherit;
+  padding: 0 2px;
 }
 
 .definition-facts {

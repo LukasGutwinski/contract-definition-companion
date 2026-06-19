@@ -67,4 +67,22 @@ describe("contract definition parser", () => {
     expect(result.definitions.map((definition) => definition.term)).toEqual(["Buyer", "Seller"]);
     expect(result.definitions.every((definition) => definition.source === "table")).toBe(true);
   });
+
+  it("keeps occurrence context tied to the exact matched text", () => {
+    const result = scanDocument(
+      paragraphs([
+        "Definitions",
+        "\"Agreement\" means this agreement between the parties.",
+        "This agreement is not counted, but this Agreement is counted.",
+      ]),
+    );
+
+    expect(result.occurrences).toHaveLength(1);
+    expect(result.occurrences[0]).toMatchObject({
+      term: "Agreement",
+      start: 40,
+      contextHit: "Agreement",
+    });
+    expect(result.occurrences[0].context).toContain("this Agreement is counted");
+  });
 });

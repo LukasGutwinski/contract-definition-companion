@@ -6,15 +6,13 @@ const SCAN_PREFIX = "definition-companion:scan:";
 export interface AppSettings {
   language: ContractLanguage;
   inlineMode: InlineMode;
-  persistDefinitions: boolean;
 }
 
 export type InlineMode = "off" | "selected" | "all";
 
 export const DEFAULT_SETTINGS: AppSettings = {
   language: "auto",
-  inlineMode: "selected",
-  persistDefinitions: true,
+  inlineMode: "off",
 };
 
 export function loadSettings(): AppSettings {
@@ -26,11 +24,13 @@ export function loadSettings(): AppSettings {
     const inlineMode =
       typeof parsed.inlineMode === "boolean"
         ? parsed.inlineMode
-          ? "selected"
+          ? "all"
           : "off"
-        : parsed.inlineMode ?? DEFAULT_SETTINGS.inlineMode;
+        : parsed.inlineMode === "all"
+          ? "all"
+          : "off";
 
-    return { ...DEFAULT_SETTINGS, ...parsed, inlineMode };
+    return { ...DEFAULT_SETTINGS, ...parsed, language: "auto", inlineMode };
   } catch {
     return DEFAULT_SETTINGS;
   }

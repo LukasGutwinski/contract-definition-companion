@@ -150,7 +150,7 @@ async function selectOccurrenceInParagraph(
     if (!paragraph) return;
 
     const ranges = paragraph.search(occurrence.term, {
-      matchCase: false,
+      matchCase: true,
       matchWholeWord: true,
     });
     ranges.load("items");
@@ -159,7 +159,7 @@ async function selectOccurrenceInParagraph(
     const fallbackRanges =
       ranges.items.length === 0
         ? paragraph.search(occurrence.term, {
-            matchCase: false,
+            matchCase: true,
             matchWholeWord: false,
           })
         : undefined;

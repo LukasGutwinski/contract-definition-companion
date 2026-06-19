@@ -28,6 +28,9 @@ export interface Occurrence {
   start: number;
   length: number;
   context: string;
+  contextBefore?: string;
+  contextHit?: string;
+  contextAfter?: string;
 }
 
 export interface ScanStats {

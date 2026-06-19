@@ -27,6 +27,7 @@ export function findOccurrences(
         if (overlaps(occupied, start, end)) continue;
 
         occupied.push({ start, end });
+        const context = buildContext(paragraph.text, start, end);
         occurrences.push({
           id: `${definition.id}:${paragraph.index}:${start}`,
           definitionId: definition.id,
@@ -35,7 +36,10 @@ export function findOccurrences(
           paragraphIndex: paragraph.index,
           start,
           length: definition.term.length,
-          context: buildContext(paragraph.text, start, end),
+          context: normalizeWhitespace([context.before, context.hit, context.after].filter(Boolean).join(" ")),
+          contextBefore: context.before,
+          contextHit: context.hit,
+          contextAfter: context.after,
         });
 
         if (occurrences.length >= maxOccurrences) {
@@ -56,11 +60,18 @@ function overlaps(occupied: Array<{ start: number; end: number }>, start: number
   return occupied.some((range) => start < range.end && end > range.start);
 }
 
-function buildContext(text: string, start: number, end: number): string {
-  const before = text.slice(Math.max(0, start - 65), start);
+function buildContext(text: string, start: number, end: number): { before: string; hit: string; after: string } {
+  const beforeStart = Math.max(0, start - 65);
+  const afterEnd = Math.min(text.length, end + 65);
+  const before = text.slice(beforeStart, start);
   const hit = text.slice(start, end);
-  const after = text.slice(end, Math.min(text.length, end + 65));
-  return normalizeWhitespace(`${before}${hit}${after}`);
+  const after = text.slice(end, afterEnd);
+
+  return {
+    before: normalizeWhitespace(before),
+    hit,
+    after: normalizeWhitespace(after),
+  };
 }
 
 function sortOccurrences(occurrences: Occurrence[]): Occurrence[] {
