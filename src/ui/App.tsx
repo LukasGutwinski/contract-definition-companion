@@ -539,10 +539,13 @@ function OccurrenceContext({ occurrence }: { occurrence: Occurrence }) {
 }
 
 function getOccurrenceIndexInParagraph(occurrence: Occurrence, activeOccurrences: Occurrence[]): number {
+  const searchText = occurrence.contextHit || occurrence.term;
+
   return activeOccurrences.filter(
     (item) =>
       item.paragraphIndex === occurrence.paragraphIndex &&
       item.paragraphId === occurrence.paragraphId &&
+      (item.contextHit || item.term) === searchText &&
       item.start < occurrence.start,
   ).length;
 }

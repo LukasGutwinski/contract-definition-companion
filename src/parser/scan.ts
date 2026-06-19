@@ -1,6 +1,7 @@
 import { detectDefinitions } from "./detectDefinitions";
 import { findOccurrences } from "./findOccurrences";
 import { normalizeTerm } from "./normalize";
+import { getLongestTermVariantLength, getTermSearchVariants } from "./termVariants";
 import type { ContractLanguage, DefinitionEntry, DocumentParagraph, ScanOptions, ScanResult } from "./types";
 
 export const DEFAULT_SCAN_OPTIONS: ScanOptions = {
@@ -48,12 +49,16 @@ export function findDefinitionForText(
   const normalized = normalizeTerm(text);
   if (!normalized) return undefined;
 
-  const exact = definitions.find((definition) => definition.normalizedTerm === normalized);
+  const exact = definitions.find((definition) =>
+    getTermSearchVariants(definition).some((variant) => normalizeTerm(variant) === normalized),
+  );
   if (exact) return exact;
 
   return [...definitions]
-    .sort((a, b) => b.term.length - a.term.length)
-    .find((definition) => normalized.includes(definition.normalizedTerm));
+    .sort((a, b) => getLongestTermVariantLength(b) - getLongestTermVariantLength(a))
+    .find((definition) =>
+      getTermSearchVariants(definition).some((variant) => normalized.includes(normalizeTerm(variant))),
+    );
 }
 
 export type { ContractLanguage, DefinitionEntry, DocumentParagraph, ScanResult };

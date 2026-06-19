@@ -1,5 +1,6 @@
 import type { DefinitionEntry, DocumentParagraph, Occurrence } from "./types";
 import { escapeRegExp, isWordCharacter, normalizeWhitespace } from "./normalize";
+import { getLongestTermVariantLength, getTermSearchVariants } from "./termVariants";
 
 export function findOccurrences(
   paragraphs: DocumentParagraph[],
@@ -7,7 +8,9 @@ export function findOccurrences(
   maxOccurrences: number,
 ): { occurrences: Occurrence[]; truncated: boolean } {
   const occurrences: Occurrence[] = [];
-  const termsByLength = [...definitions].sort((a, b) => b.term.length - a.term.length);
+  const termsByLength = [...definitions].sort(
+    (a, b) => getLongestTermVariantLength(b) - getLongestTermVariantLength(a),
+  );
 
   for (const paragraph of paragraphs) {
     if (!paragraph.text.trim()) continue;
@@ -17,12 +20,16 @@ export function findOccurrences(
     for (const definition of termsByLength) {
       if (definition.paragraphIndex === paragraph.index) continue;
 
-      const regex = new RegExp(escapeRegExp(definition.term), "g");
+      const variants = getTermSearchVariants(definition);
+      if (!variants.length) continue;
+
+      const regex = new RegExp(variants.map(escapeRegExp).join("|"), "gu");
       let match: RegExpExecArray | null;
 
       while ((match = regex.exec(paragraph.text)) !== null) {
         const start = match.index;
-        const end = start + definition.term.length;
+        const hit = match[0];
+        const end = start + hit.length;
         if (!hasWordBoundaries(paragraph.text, start, end)) continue;
         if (overlaps(occupied, start, end)) continue;
 
@@ -35,7 +42,7 @@ export function findOccurrences(
           paragraphId: paragraph.id,
           paragraphIndex: paragraph.index,
           start,
-          length: definition.term.length,
+          length: hit.length,
           context: normalizeWhitespace([context.before, context.hit, context.after].filter(Boolean).join(" ")),
           contextBefore: context.before,
           contextHit: context.hit,

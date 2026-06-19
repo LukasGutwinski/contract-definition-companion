@@ -45,8 +45,13 @@ const DE_VERBS = [
 
 const QUOTED_TERM = `[“"„']([^“”"„'‘’]{2,120})[”"“']`;
 const TERM_BODY = `([A-ZÄÖÜ][\\p{L}\\p{N}/&.,() \\-]{1,120})`;
-const EN_VERB_PATTERN = `(?:${EN_VERBS.map(escapeForPattern).join("|")})`;
-const DE_VERB_PATTERN = `(?:${DE_VERBS.map(escapeForPattern).join("|")})`;
+const EN_ALIAS_INTRO = `(?:the|this|that|an?|each(?:\\s+an?)?|collectively,?\\s+the|together,?\\s+the)`;
+const EN_VERB_PATTERN = createAlternation(EN_VERBS);
+const DE_VERB_PATTERN = createAlternation(DE_VERBS);
+const EN_PARENTHETICAL_ALIAS_PATTERN = new RegExp(
+  `\\(\\s*(?:${EN_ALIAS_INTRO}\\s+)?${QUOTED_TERM}\\s*\\)`,
+  "iu",
+);
 
 const START_PATTERNS: Array<{
   pattern: RegExp;
@@ -210,7 +215,31 @@ function matchDefinitionStart(text: string, language: ContractLanguage): Candida
     };
   }
 
-  return undefined;
+  return matchEnglishParentheticalAlias(stripped, language);
+}
+
+function matchEnglishParentheticalAlias(text: string, language: ContractLanguage): Candidate | undefined {
+  if (language !== "auto" && language !== "en") return undefined;
+
+  const match = text.match(EN_PARENTHETICAL_ALIAS_PATTERN);
+  if (!match || match.index === undefined) return undefined;
+
+  const term = cleanTerm(match[1]);
+  if (!isPlausibleTerm(term)) return undefined;
+
+  const definition = cleanDefinition(
+    normalizeWhitespace(`${text.slice(0, match.index)} ${text.slice(match.index + match[0].length)}`)
+      .replace(/\s+([,.;:])/g, "$1"),
+  );
+  if (definition.length < 5) return undefined;
+
+  return {
+    term,
+    definition,
+    language: "en",
+    source: "quoted",
+    confidence: 0.72,
+  };
 }
 
 function matchTableDefinition(text: string, language: ContractLanguage): Candidate | undefined {
@@ -287,4 +316,8 @@ function createDefinitionId(term: string, lineIndex: number, offset: number): st
 
 function escapeForPattern(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
+}
+
+function createAlternation(values: string[]): string {
+  return `(?:${[...values].sort((a, b) => b.length - a.length).map(escapeForPattern).join("|")})`;
 }

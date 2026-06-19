@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { scanDocument } from "../parser/scan";
+import { findDefinitionForText, scanDocument } from "../parser/scan";
 import type { DocumentParagraph } from "../parser/types";
 
 function paragraphs(lines: string[]): DocumentParagraph[] {
@@ -68,6 +68,20 @@ describe("contract definition parser", () => {
     expect(result.definitions.every((definition) => definition.source === "table")).toBe(true);
   });
 
+  it("extracts English parenthetical aliases", () => {
+    const result = scanDocument(
+      paragraphs([
+        "Acme Ltd, a company incorporated in England (the \"Seller\").",
+        "Buyer Ltd, a company incorporated in Austria (the \"Buyer\").",
+        "The Buyer shall pay the Seller on Completion.",
+      ]),
+      { language: "en" },
+    );
+
+    expect(result.definitions.map((definition) => definition.term)).toEqual(["Buyer", "Seller"]);
+    expect(result.occurrences.map((occurrence) => occurrence.term)).toEqual(["Buyer", "Seller"]);
+  });
+
   it("keeps occurrence context tied to the exact matched text", () => {
     const result = scanDocument(
       paragraphs([
@@ -84,5 +98,45 @@ describe("contract definition parser", () => {
       contextHit: "Agreement",
     });
     expect(result.occurrences[0].context).toContain("this Agreement is counted");
+  });
+
+  it("finds English plural and possessive variants without matching lowercase prose", () => {
+    const result = scanDocument(
+      paragraphs([
+        "Definitions",
+        "\"Business Day\" means a day other than a Saturday or Sunday.",
+        "\"Company\" means Example Ltd.",
+        "Completion may occur over two Business Days.",
+        "The Company's obligations bind any Companies in its group.",
+        "A business day without capitals is descriptive.",
+      ]),
+      { language: "en" },
+    );
+
+    expect(result.occurrences.map((occurrence) => occurrence.contextHit)).toEqual([
+      "Business Days",
+      "Company's",
+      "Companies",
+    ]);
+    expect(result.occurrences.map((occurrence) => occurrence.length)).toEqual([
+      "Business Days".length,
+      "Company's".length,
+      "Companies".length,
+    ]);
+  });
+
+  it("resolves selected English variants back to the base definition", () => {
+    const result = scanDocument(
+      paragraphs([
+        "Definitions",
+        "\"Business Day\" means a day other than a Saturday or Sunday.",
+        "\"Company\" means Example Ltd.",
+      ]),
+      { language: "en" },
+    );
+
+    expect(findDefinitionForText("Business Days", result.definitions)?.term).toBe("Business Day");
+    expect(findDefinitionForText("Companies", result.definitions)?.term).toBe("Company");
+    expect(findDefinitionForText("the Company's board", result.definitions)?.term).toBe("Company");
   });
 });
