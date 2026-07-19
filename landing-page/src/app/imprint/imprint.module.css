@@ -1,0 +1,275 @@
+.page {
+  --paper: #f7f6f1;
+  --white: #ffffff;
+  --ink: #171918;
+  --muted: #626762;
+  --line: #d8d8d0;
+  --orange: #ef5b23;
+  --teal: #153f3c;
+  min-height: 100vh;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.header {
+  height: 68px;
+  border-bottom: 1px solid var(--line);
+}
+
+.headerInner,
+.heroInner,
+.contentInner,
+.footer {
+  width: min(1260px, calc(100% - 64px));
+  margin: 0 auto;
+}
+
+.headerInner {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.brand,
+.backLink,
+.companyIntro a,
+.footer a {
+  display: inline-flex;
+  align-items: center;
+}
+
+.brand {
+  gap: 11px;
+  font-family: var(--font-serif);
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.brandMark {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--ink);
+  color: #145cc7;
+}
+
+.backLink {
+  gap: 7px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.backLink:hover,
+.companyIntro a:hover,
+.footer a:hover {
+  color: var(--orange);
+}
+
+.legalHero {
+  padding: 88px 0 82px;
+  border-bottom: 1px solid var(--line);
+}
+
+.heroInner > p,
+.companyIntro > p {
+  font-family: var(--font-geist-mono);
+  color: var(--teal);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.legalHero h1 {
+  margin-top: 22px;
+  font-family: var(--font-serif);
+  font-size: 68px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.legalHero span {
+  display: block;
+  margin-top: 25px;
+  color: var(--muted);
+  font-size: 17px;
+}
+
+.content {
+  background: var(--white);
+}
+
+.contentInner {
+  display: grid;
+  grid-template-columns: minmax(250px, 0.72fr) minmax(0, 1.28fr);
+  gap: 100px;
+  padding: 90px 0 112px;
+}
+
+.companyIntro {
+  align-self: start;
+  position: sticky;
+  top: 40px;
+}
+
+.companyIntro h2 {
+  margin-top: 22px;
+  font-family: var(--font-serif);
+  font-size: 32px;
+  font-weight: 600;
+}
+
+.companyIntro address {
+  margin-top: 20px;
+  color: var(--muted);
+  font-size: 15px;
+  font-style: normal;
+  line-height: 1.75;
+}
+
+.companyIntro a {
+  gap: 8px;
+  margin-top: 25px;
+  color: var(--teal);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.legalDetails {
+  border-top: 1px solid var(--ink);
+}
+
+.legalDetails > section {
+  display: grid;
+  grid-template-columns: 54px 1fr;
+  gap: 24px;
+  padding: 34px 0 42px;
+  border-bottom: 1px solid var(--line);
+}
+
+.sectionNumber {
+  font-family: var(--font-geist-mono);
+  color: var(--orange);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.legalDetails h2 {
+  font-family: var(--font-serif);
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.legalDetails dl {
+  margin-top: 26px;
+}
+
+.legalDetails dl > div {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.8fr) minmax(0, 1.2fr);
+  gap: 30px;
+  padding: 15px 0;
+  border-top: 1px solid #ecece7;
+}
+
+.legalDetails dt {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.legalDetails dd,
+.purpose {
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.purpose {
+  max-width: 590px;
+  margin-top: 24px;
+  color: var(--muted);
+}
+
+.footer {
+  min-height: 105px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.footer a {
+  gap: 6px;
+  color: var(--teal);
+  font-weight: 700;
+}
+
+@media (max-width: 760px) {
+  .headerInner,
+  .heroInner,
+  .contentInner,
+  .footer {
+    width: calc(100% - 36px);
+  }
+
+  .header {
+    height: 62px;
+  }
+
+  .brand {
+    font-size: 17px;
+  }
+
+  .brandMark {
+    width: 31px;
+    height: 31px;
+  }
+
+  .backLink {
+    font-size: 0;
+  }
+
+  .backLink svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .legalHero {
+    padding: 64px 0 60px;
+  }
+
+  .legalHero h1 {
+    font-size: 48px;
+  }
+
+  .contentInner {
+    grid-template-columns: 1fr;
+    gap: 60px;
+    padding: 72px 0 82px;
+  }
+
+  .companyIntro {
+    position: static;
+  }
+
+  .legalDetails > section {
+    grid-template-columns: 38px 1fr;
+    gap: 14px;
+  }
+
+  .legalDetails dl > div {
+    grid-template-columns: 1fr;
+    gap: 7px;
+  }
+
+  .footer {
+    min-height: 120px;
+    align-items: flex-start;
+    flex-direction: column;
+    justify-content: center;
+  }
+}

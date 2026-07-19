@@ -1,0 +1,123 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { ArrowLeft, ArrowUpRight, FileText, Mail } from "lucide-react";
+import styles from "./imprint.module.css";
+
+export const metadata: Metadata = {
+  title: "Imprint | Contract Definitions",
+  description: "Legal notice and company information for Contract Definitions.",
+};
+
+const gutVenturesUrl = "https://gut-ventures.com/";
+
+export default function Imprint() {
+  return (
+    <main className={styles.page}>
+      <header className={styles.header}>
+        <div className={styles.headerInner}>
+          <Link className={styles.brand} href="/">
+            <span className={styles.brandMark} aria-hidden="true">
+              <FileText size={20} strokeWidth={1.8} />
+            </span>
+            <span>Contract Definitions</span>
+          </Link>
+          <Link className={styles.backLink} href="/">
+            <ArrowLeft aria-hidden="true" size={17} />
+            Back to product
+          </Link>
+        </div>
+      </header>
+
+      <section className={styles.legalHero}>
+        <div className={styles.heroInner}>
+          <p>LEGAL</p>
+          <h1>Legal Notice</h1>
+          <span>Company information for Contract Definitions</span>
+        </div>
+      </section>
+
+      <section className={styles.content}>
+        <div className={styles.contentInner}>
+          <aside className={styles.companyIntro}>
+            <p>RESPONSIBLE ENTITY</p>
+            <h2>GUT Ventures GmbH</h2>
+            <address>
+              Meiereistraße 14/158
+              <br />
+              1020 Wien
+              <br />
+              Austria
+            </address>
+            <a href="mailto:lukas@gut-ventures.com">
+              <Mail aria-hidden="true" size={17} />
+              lukas@gut-ventures.com
+            </a>
+          </aside>
+
+          <div className={styles.legalDetails}>
+            <section>
+              <p className={styles.sectionNumber}>01</p>
+              <div>
+                <h2>Company details</h2>
+                <dl>
+                  <div>
+                    <dt>Legal form</dt>
+                    <dd>Limited liability company (GmbH)</dd>
+                  </div>
+                  <div>
+                    <dt>Registered office</dt>
+                    <dd>Vienna, Austria</dd>
+                  </div>
+                  <div>
+                    <dt>Authorised representative</dt>
+                    <dd>Lukas Gutwinski MSc (WU)</dd>
+                  </div>
+                </dl>
+              </div>
+            </section>
+
+            <section>
+              <p className={styles.sectionNumber}>02</p>
+              <div>
+                <h2>Registration</h2>
+                <dl>
+                  <div>
+                    <dt>Company register number</dt>
+                    <dd>607397g</dd>
+                  </div>
+                  <div>
+                    <dt>Register court</dt>
+                    <dd>Commercial Court of Vienna</dd>
+                  </div>
+                  <div>
+                    <dt>VAT identification number</dt>
+                    <dd>ATU 79614703</dd>
+                  </div>
+                </dl>
+              </div>
+            </section>
+
+            <section>
+              <p className={styles.sectionNumber}>03</p>
+              <div>
+                <h2>Business purpose</h2>
+                <p className={styles.purpose}>
+                  Services in automatic data processing and information
+                  technology.
+                </p>
+              </div>
+            </section>
+          </div>
+        </div>
+      </section>
+
+      <footer className={styles.footer}>
+        <p>© GUT Ventures GmbH</p>
+        <a href={gutVenturesUrl} target="_blank" rel="noreferrer">
+          gut-ventures.com
+          <ArrowUpRight aria-hidden="true" size={15} />
+        </a>
+      </footer>
+    </main>
+  );
+}
