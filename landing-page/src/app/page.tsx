@@ -2,7 +2,6 @@ import Image from "next/image";
 import {
   ArrowRight,
   ArrowUpRight,
-  BriefcaseBusiness,
   Check,
   Code2,
   Download,
@@ -16,6 +15,8 @@ import {
   Search,
   ShieldCheck,
 } from "lucide-react";
+import { ColorThemeSwitcher } from "./ColorThemeSwitcher";
+import { GutVenturesLogo } from "./GutVenturesLogo";
 import styles from "./page.module.css";
 
 const wordStoreUrl =
@@ -99,6 +100,8 @@ function StoreButton({ compact = false }: { compact?: boolean }) {
 export default function Home() {
   return (
     <main className={styles.page}>
+      <ColorThemeSwitcher />
+
       <header className={styles.header}>
         <div className={styles.headerInner}>
           <div className={styles.brandGroup}>
@@ -176,24 +179,17 @@ export default function Home() {
           </div>
 
           <figure className={styles.productVisual}>
-            <div className={styles.productLabel}>
-              <span className={styles.statusDot} aria-hidden="true" />
-              Running locally in Word
-            </div>
             <div className={styles.productCrop}>
               <Image
                 className={styles.productImage}
-                src="/product/word-product-reference.jpg"
+                src="/product/word-product-reference-gut-navy.png"
                 alt="Contract Definitions open beside a share purchase agreement in Microsoft Word"
-                width={1280}
-                height={853}
+                width={1537}
+                height={1023}
                 priority
                 sizes="(max-width: 800px) 100vw, 68vw"
               />
             </div>
-            <figcaption>
-              Click a marked term to keep its definition and occurrences in view.
-            </figcaption>
           </figure>
         </div>
       </section>
@@ -339,11 +335,7 @@ if (definition) {
 
       <section className={styles.gutVentures} id="gut-ventures">
         <div className={styles.gutVenturesInner}>
-          <div className={styles.gutSignature} aria-label="GUT Ventures">
-            <BriefcaseBusiness aria-hidden="true" size={28} strokeWidth={1.5} />
-            <strong>GUT</strong>
-            <span>VENTURES</span>
-          </div>
+          <GutVenturesLogo className={styles.gutSignature} />
 
           <div className={styles.studioCopy}>
             <p className={styles.eyebrow}>A GUT VENTURES PROJECT</p>
@@ -436,7 +428,7 @@ if (definition) {
         <p>
           An open-source project by{" "}
           <a href={gutVenturesUrl} target="_blank" rel="noreferrer">
-            GUT Ventures
+            GUT Ventures GmbH
           </a>
           .
         </p>

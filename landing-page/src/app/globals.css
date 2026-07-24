@@ -45,12 +45,12 @@ select {
 }
 
 ::selection {
-  background: #ef5b23;
+  background: var(--selection-background, #ef5b23);
   color: #ffffff;
 }
 
 :focus-visible {
-  outline: 3px solid #ef5b23;
+  outline: 3px solid var(--focus-color, #ef5b23);
   outline-offset: 3px;
 }
 

@@ -8,17 +8,17 @@ export interface OfficeEnvironment {
 
 export async function waitForOffice(): Promise<OfficeEnvironment> {
   if (!("Office" in window) || !window.Office?.onReady) {
-    return { available: false, reason: "Office.js ist nicht verfügbar. Demo-Modus aktiv." };
+    return { available: false, reason: "Office.js is not available. Demo mode active." };
   }
 
   try {
     const info = await Office.onReady();
     if (info.host !== Office.HostType.Word) {
-      return { available: false, reason: "Nicht in Word geöffnet. Demo-Modus aktiv." };
+      return { available: false, reason: "Not opened in Word. Demo mode active." };
     }
     return { available: true };
   } catch {
-    return { available: false, reason: "Office konnte nicht initialisiert werden. Demo-Modus aktiv." };
+    return { available: false, reason: "Office could not be initialized. Demo mode active." };
   }
 }
 

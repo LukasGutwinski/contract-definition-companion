@@ -7,11 +7,11 @@ const SAMPLE_PARAGRAPHS = [
   "\"Business Day\" means a day other than a Saturday, Sunday or public holiday in Vienna, Austria.",
   "2. Sale and Purchase",
   "Completion shall take place on the first Business Day following satisfaction of the Conditions. The Seller shall deliver the Accounts to the Buyer.",
-  "3. Definitionen",
-  "„Anteile“ bezeichnet sämtliche Geschäftsanteile an der Zielgesellschaft.",
-  "„Kaufpreis“ bedeutet den gemäß Punkt 4 zu zahlenden Gesamtkaufpreis für die Anteile.",
-  "4. Kaufpreis",
-  "Der Kaufpreis ist am Vollzugstag auf das Konto des Verkäufers zu zahlen.",
+  "3. Additional Definitions",
+  "\"Shares\" means all shares in the Target Company.",
+  "\"Purchase Price\" means the total purchase price payable for the Shares under clause 4.",
+  "4. Purchase Price",
+  "The Purchase Price shall be paid into the Seller's account on Completion.",
 ];
 
 export const sampleContract: DocumentParagraph[] = SAMPLE_PARAGRAPHS.map((text, index) => ({

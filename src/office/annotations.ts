@@ -19,7 +19,7 @@ export async function applyInlineAnnotations(
   onSelectDefinition: AnnotationSelectionHandler,
 ): Promise<number> {
   if (!window.Office?.context?.requirements?.isSetSupported?.("WordApi", "1.8")) {
-    throw new Error("WordApi 1.8 wird für den Inline-Modus benötigt.");
+    throw new Error("WordApi 1.8 is required for inline mode.");
   }
 
   await clearInlineAnnotations();

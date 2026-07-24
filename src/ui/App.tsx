@@ -42,7 +42,7 @@ export function App() {
   const [documentKey, setDocumentKey] = useState<string>("demo-document");
   const [status, setStatus] = useState<{ type: Status; message: string }>({
     type: "idle",
-    message: "Bereit",
+    message: "Ready",
   });
   const [inlineCount, setInlineCount] = useState(0);
   const [annotationsAvailable, setAnnotationsAvailable] = useState(false);
@@ -77,7 +77,7 @@ export function App() {
       setDocumentKey(key);
 
       if (!environment.available) {
-        setStatus({ type: "warning", message: environment.reason ?? "Demo-Modus aktiv" });
+        setStatus({ type: "warning", message: environment.reason ?? "Demo mode active" });
       }
 
       const cached = loadCachedScan(key);
@@ -85,7 +85,7 @@ export function App() {
         setScan(cached);
         updateSelectedId(cached.definitions[0]?.id);
         setSelectedOccurrenceIndex(0);
-        setStatus({ type: "ready", message: "Lokal gespeicherter Scan geladen" });
+        setStatus({ type: "ready", message: "Locally saved scan loaded" });
       }
 
       unsubscribeSelection = onSelectionChanged((selectedText) => {
@@ -135,7 +135,7 @@ export function App() {
   }, [scan]);
 
   async function handleScan() {
-    setStatus({ type: "loading", message: "Dokument wird lokal gescannt" });
+    setStatus({ type: "loading", message: "Scanning document locally" });
     setInlineCount(0);
 
     try {
@@ -158,13 +158,13 @@ export function App() {
         await clearInlineAnnotations();
         setStatus({
           type: result.warnings.length ? "warning" : "ready",
-          message: `${result.stats.definitionsFound} Definitionen, ${result.stats.occurrencesFound} Vorkommen`,
+          message: `${result.stats.definitionsFound} definitions, ${result.stats.occurrencesFound} occurrences`,
         });
       }
     } catch (error) {
       setStatus({
         type: "error",
-        message: error instanceof Error ? error.message : "Scan fehlgeschlagen",
+        message: error instanceof Error ? error.message : "Scan failed",
       });
     }
   }
@@ -176,12 +176,12 @@ export function App() {
 
     if (!enabled) {
       await clearInlineAnnotations();
-      setStatus({ type: "ready", message: "Inline-Markierungen entfernt" });
+      setStatus({ type: "ready", message: "Inline highlights removed" });
       return;
     }
 
     if (!scan) {
-      setStatus({ type: "warning", message: "Vor dem Inline-Modus zuerst scannen" });
+      setStatus({ type: "warning", message: "Scan the document before enabling inline mode" });
       return;
     }
 
@@ -191,14 +191,14 @@ export function App() {
     } catch (error) {
       setStatus({
         type: "error",
-        message: error instanceof Error ? error.message : "Inline-Markierungen fehlgeschlagen",
+        message: error instanceof Error ? error.message : "Inline highlighting failed",
       });
     }
   }
 
   async function handleHighlightSelectedDefinition() {
     if (!scan || !selectedId) {
-      setStatus({ type: "warning", message: "Bitte zuerst eine Definition auswählen" });
+      setStatus({ type: "warning", message: "Select a definition first" });
       return;
     }
 
@@ -209,7 +209,7 @@ export function App() {
     } catch (error) {
       setStatus({
         type: "error",
-        message: error instanceof Error ? error.message : "Markierung fehlgeschlagen",
+        message: error instanceof Error ? error.message : "Highlighting failed",
       });
     }
   }
@@ -221,7 +221,7 @@ export function App() {
     definitionId?: string,
   ) {
     if (!annotationsAvailable) {
-      throw new Error("Inline-Modus ist in dieser Word-Version nicht verfügbar.");
+      throw new Error("Inline mode is not available in this version of Word.");
     }
 
     const visibleDefinitions =
@@ -233,7 +233,7 @@ export function App() {
         ? result.occurrences
         : result.occurrences.filter((occurrence) => occurrence.definitionId === definitionId);
 
-    setStatus({ type: "loading", message: "Inline-Markierungen werden erzeugt" });
+    setStatus({ type: "loading", message: "Creating inline highlights" });
     const count = await applyInlineAnnotations(
       paragraphs,
       visibleDefinitions,
@@ -245,8 +245,8 @@ export function App() {
       type: "ready",
       message:
         inlineMode === "all"
-          ? `${count} Inline-Markierungen aktiv`
-          : `${count} Markierungen für aktuellen Begriff`,
+          ? `${count} inline highlights active`
+          : `${count} highlights for the current term`,
     });
   }
 
@@ -258,7 +258,7 @@ export function App() {
     setSelectedOccurrenceIndex(0);
     setInlineCount(0);
     setSettings((current) => ({ ...current, inlineMode: "off" }));
-    setStatus({ type: "ready", message: "Lokale Daten für dieses Dokument gelöscht" });
+    setStatus({ type: "ready", message: "Local data for this document deleted" });
   }
 
   function activateDefinition(definitionId: string, occurrenceId?: string) {
@@ -326,7 +326,7 @@ export function App() {
         <StatusBadge status={status.type} />
       </header>
 
-      <section className="toolbar" aria-label="Aktionen">
+      <section className="toolbar" aria-label="Actions">
         <button className="primary-button" type="button" onClick={handleScan} disabled={status.type === "loading"}>
           {status.type === "loading" ? <Loader2 className="spin" size={16} /> : <ListRestart size={16} />}
           Scan
@@ -337,19 +337,19 @@ export function App() {
           type="button"
           onClick={() => void handleInlineToggle(settings.inlineMode === "off")}
           disabled={!scan || !annotationsAvailable || status.type === "loading"}
-          title={annotationsAvailable ? "Inline-Markierungen ein- oder ausschalten" : "WordApi 1.8 erforderlich"}
+          title={annotationsAvailable ? "Turn inline highlights on or off" : "WordApi 1.8 required"}
         >
           <Highlighter size={16} />
           Inline
         </button>
 
-        <button className="icon-button" type="button" onClick={() => void handleClearCache()} title="Lokalen Cache löschen">
+        <button className="icon-button" type="button" onClick={() => void handleClearCache()} title="Clear local cache">
           <Eraser size={16} />
         </button>
       </section>
 
       {scan?.warnings.length ? (
-        <section className="warning-list" aria-label="Hinweise">
+        <section className="warning-list" aria-label="Warnings">
           {scan.warnings.map((warning) => (
             <p key={warning}>{warning}</p>
           ))}
@@ -372,7 +372,7 @@ export function App() {
         <Search size={16} />
         <input
           type="search"
-          placeholder="Definition suchen"
+          placeholder="Search definitions"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
@@ -402,11 +402,11 @@ function DefinitionList({
   onSelect: (id: string) => void;
 }) {
   if (!definitions.length) {
-    return <div className="empty-state">Keine Definitionen im aktuellen Scan.</div>;
+    return <div className="empty-state">No definitions in the current scan.</div>;
   }
 
   return (
-    <nav className="definition-list" aria-label="Definitionen">
+    <nav className="definition-list" aria-label="Definitions">
       {definitions.map((definition) => (
         <button
           className={definition.id === selectedId ? "definition-row selected" : "definition-row"}
@@ -446,7 +446,7 @@ function DefinitionDetails({
   if (!definition) {
     return (
       <article className="definition-detail active-detail empty-state">
-        Scanne das Dokument oder wähle einen Begriff aus.
+        Scan the document or select a term.
       </article>
     );
   }
@@ -461,10 +461,10 @@ function DefinitionDetails({
           <h2>{definition.term}</h2>
         </div>
         <div className="detail-actions">
-          <button className="icon-button" type="button" onClick={onHighlightDefinition} title="Diesen Begriff markieren">
+          <button className="icon-button" type="button" onClick={onHighlightDefinition} title="Highlight this term">
             <Highlighter size={17} />
           </button>
-          <button className="icon-button" type="button" onClick={onJumpDefinition} title="Zur Definition springen">
+          <button className="icon-button" type="button" onClick={onJumpDefinition} title="Jump to definition">
             <ArrowUpRight size={17} />
           </button>
         </div>
@@ -472,25 +472,25 @@ function DefinitionDetails({
 
       <p className="definition-copy">{definition.definition}</p>
 
-      <div className="occurrence-nav" aria-label="Vorkommen">
+      <div className="occurrence-nav" aria-label="Occurrences">
         <button
           className="small-nav-button"
           type="button"
           onClick={onPreviousOccurrence}
           disabled={selectedOccurrenceIndex <= 0}
-          title="Voriges Vorkommen"
+          title="Previous occurrence"
         >
           <ChevronLeft size={16} />
         </button>
         <span>
-          Vorkommen {occurrencePosition} / {activeOccurrences.length}
+          Occurrence {occurrencePosition} / {activeOccurrences.length}
         </span>
         <button
           className="small-nav-button"
           type="button"
           onClick={onNextOccurrence}
           disabled={!activeOccurrences.length || selectedOccurrenceIndex >= activeOccurrences.length - 1}
-          title="Nächstes Vorkommen"
+          title="Next occurrence"
         >
           <ChevronRight size={16} />
         </button>
@@ -500,15 +500,15 @@ function DefinitionDetails({
 
       <dl className="definition-facts">
         <div>
-          <dt>Vorkommen</dt>
+          <dt>Occurrences</dt>
           <dd>{occurrenceCount}</dd>
         </div>
         <div>
-          <dt>Quelle</dt>
+          <dt>Source</dt>
           <dd>{definition.source}</dd>
         </div>
         <div>
-          <dt>Markiert</dt>
+          <dt>Highlighted</dt>
           <dd>{inlineCount}</dd>
         </div>
       </dl>

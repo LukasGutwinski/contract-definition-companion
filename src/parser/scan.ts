@@ -23,10 +23,10 @@ export function scanDocument(
 
   const warnings: string[] = [];
   if (definitions.length === 0) {
-    warnings.push("Keine Definitionen erkannt. Prüfe, ob der Definitionsabschnitt eine ungewöhnliche Struktur hat.");
+    warnings.push("No definitions detected. Check whether the definitions section uses an unusual structure.");
   }
   if (truncated) {
-    warnings.push(`Vorkommen wurden bei ${mergedOptions.maxOccurrences} Treffern gekappt.`);
+    warnings.push(`Occurrences were limited to ${mergedOptions.maxOccurrences} matches.`);
   }
 
   return {
