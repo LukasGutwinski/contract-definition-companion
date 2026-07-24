@@ -1,10 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" role="img" aria-label="Definitions">
-  <rect width="16" height="16" rx="3.5" fill="#0969da"/>
-  <rect x="2.5" y="3" width="6.5" height="10" rx="1.2" fill="#ffffff"/>
-  <path d="M6.6 3v2.8H9" fill="#cfe7ff"/>
-  <path d="M4 7.8h4.7" stroke="#ffbf1f" stroke-width="1.1" stroke-linecap="round"/>
-  <rect x="10" y="3" width="3.5" height="10" rx="1.2" fill="#06347f"/>
-  <rect x="11" y="6.4" width="1.7" height="2.8" rx=".5" fill="#ffbf1f"/>
-  <path d="M8.6 8h2.2" stroke="#37e5ff" stroke-width="1.1" stroke-linecap="round"/>
-  <path d="M10 6.8L11.2 8 10 9.2" fill="none" stroke="#37e5ff" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" role="img" aria-label="Contract Definitions">
+  <path d="M2.25 1.25h6.5l3 3v10.5h-9.5z" fill="#fff" stroke="#020a2f" stroke-width="1.25" stroke-linejoin="round"/>
+  <path d="M8.75 1.25v3h3" fill="#e8f6fa" stroke="#020a2f" stroke-width="1.25" stroke-linejoin="round"/>
+  <path d="M4.5 7.25h4.1" stroke="#f6b900" stroke-width="1.5" stroke-linecap="round"/>
+  <path d="M4.5 10h3.5" stroke="#020a2f" stroke-width="1.1" stroke-linecap="round"/>
+  <path d="M9.5 5.5H14v7.25l-2.25-1.55-2.25 1.55z" fill="#f6b900" stroke="#020a2f" stroke-width="1.25" stroke-linejoin="round"/>
 </svg>

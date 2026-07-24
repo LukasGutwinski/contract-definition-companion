@@ -8,17 +8,26 @@ export interface OfficeEnvironment {
 
 export async function waitForOffice(): Promise<OfficeEnvironment> {
   if (!("Office" in window) || !window.Office?.onReady) {
-    return { available: false, reason: "Office.js is not available. Demo mode active." };
+    return {
+      available: false,
+      reason: "Open this add-in in Microsoft Word to analyze a document.",
+    };
   }
 
   try {
     const info = await Office.onReady();
     if (info.host !== Office.HostType.Word) {
-      return { available: false, reason: "Not opened in Word. Demo mode active." };
+      return {
+        available: false,
+        reason: "Open this add-in in Microsoft Word to analyze a document.",
+      };
     }
     return { available: true };
   } catch {
-    return { available: false, reason: "Office could not be initialized. Demo mode active." };
+    return {
+      available: false,
+      reason: "Microsoft Word could not initialize this add-in. Close the pane and try again.",
+    };
   }
 }
 
@@ -28,13 +37,6 @@ export function supportsAnnotations(): boolean {
       "Word" in window &&
       window.Word,
   );
-}
-
-export async function getDocumentKey(): Promise<string> {
-  if (!isWordAvailable()) return "demo-document";
-
-  const url = Office.context.document.url || "unsaved-document";
-  return `word:${hashString(url)}`;
 }
 
 export async function readDocumentParagraphs(): Promise<DocumentParagraph[]> {
@@ -132,7 +134,7 @@ export async function selectOccurrence(
       await selectOccurrenceInParagraph(occurrence, occurrenceIndexInParagraph, occurrence.paragraphId);
       return;
     } catch {
-      // Fall back to paragraph index; cached scans can contain stale unique local IDs.
+      // Fall back to paragraph index; scan results can contain stale unique local IDs.
     }
   }
 
@@ -203,13 +205,4 @@ async function getParagraph(
   paragraphs.load("items");
   await context.sync();
   return paragraphs.items[paragraphIndex];
-}
-
-function hashString(value: string): string {
-  let hash = 0;
-  for (let index = 0; index < value.length; index += 1) {
-    hash = (hash << 5) - hash + value.charCodeAt(index);
-    hash |= 0;
-  }
-  return Math.abs(hash).toString(36);
 }

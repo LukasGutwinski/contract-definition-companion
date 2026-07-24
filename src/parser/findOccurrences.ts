@@ -11,14 +11,28 @@ export function findOccurrences(
   const termsByLength = [...definitions].sort(
     (a, b) => getLongestTermVariantLength(b) - getLongestTermVariantLength(a),
   );
+  const definitionStartsByParagraph = new Map<number, DefinitionEntry[]>();
+
+  for (const definition of definitions) {
+    if (definition.paragraphIndex === undefined) continue;
+    const paragraphDefinitions = definitionStartsByParagraph.get(definition.paragraphIndex);
+    if (paragraphDefinitions) {
+      paragraphDefinitions.push(definition);
+    } else {
+      definitionStartsByParagraph.set(definition.paragraphIndex, [definition]);
+    }
+  }
 
   for (const paragraph of paragraphs) {
     if (!paragraph.text.trim()) continue;
 
-    const occupied: Array<{ start: number; end: number }> = [];
+    const occupied = findDefiningTermRanges(
+      paragraph.text,
+      definitionStartsByParagraph.get(paragraph.index) ?? [],
+    );
 
     for (const definition of termsByLength) {
-      if (definition.paragraphIndex === paragraph.index) continue;
+      if (definition.definitionParagraphIndexes.includes(paragraph.index)) continue;
 
       const variants = getTermSearchVariants(definition);
       if (!variants.length) continue;
@@ -57,6 +71,21 @@ export function findOccurrences(
   }
 
   return { occurrences: sortOccurrences(occurrences), truncated: false };
+}
+
+function findDefiningTermRanges(
+  text: string,
+  definitions: DefinitionEntry[],
+): Array<{ start: number; end: number }> {
+  return definitions.flatMap((definition) => {
+    const pattern = escapeRegExp(definition.term).replace(/\s+/g, "\\s+");
+    const match = new RegExp(pattern, "u").exec(text);
+    if (!match) return [];
+
+    const start = match.index;
+    const end = start + match[0].length;
+    return hasWordBoundaries(text, start, end) ? [{ start, end }] : [];
+  });
 }
 
 function hasWordBoundaries(text: string, start: number, end: number): boolean {

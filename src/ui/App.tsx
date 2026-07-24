@@ -1,18 +1,26 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  AlertCircle,
   ArrowUpRight,
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Eraser,
+  ExternalLink,
+  Github,
   Highlighter,
-  ListRestart,
+  Info,
   Loader2,
+  MessageSquare,
+  MoreHorizontal,
+  Pin,
+  RefreshCw,
   Search,
+  ShieldCheck,
+  X,
 } from "lucide-react";
-import { clearInlineAnnotations, applyInlineAnnotations } from "../office/annotations";
+import { applyInlineAnnotations, clearInlineAnnotations } from "../office/annotations";
 import {
-  getDocumentKey,
   onSelectionChanged,
   readDocumentParagraphs,
   selectOccurrence,
@@ -21,36 +29,56 @@ import {
   waitForOffice,
 } from "../office/wordClient";
 import { findDefinitionForText, scanDocument } from "../parser/scan";
-import type { DefinitionEntry, DocumentParagraph, Occurrence, ScanResult } from "../parser/types";
+import type { DefinitionEntry, Occurrence, ScanResult } from "../parser/types";
 import {
-  clearCachedScan,
-  loadCachedScan,
+  clearLegacyCachedScans,
   loadSettings,
-  saveCachedScan,
   saveSettings,
   type InlineMode,
 } from "../storage/localStore";
 
-type Status = "idle" | "loading" | "ready" | "warning" | "error";
+type AppView =
+  | "initializing"
+  | "scanning"
+  | "ready"
+  | "empty"
+  | "error"
+  | "outside-word";
+type StatusTone = "neutral" | "success" | "warning";
+type InfoView = "about" | "privacy";
+
+const GUT_VENTURES_URL =
+  "https://gut-ventures.com/?utm_source=contract_definitions&utm_medium=word_addin";
+const CUSTOM_SOLUTIONS_URL =
+  "https://gut-ventures.com/?utm_source=contract_definitions&utm_medium=word_addin&utm_campaign=custom_legal_tech";
+const GITHUB_URL = "https://github.com/LukasGutwinski";
+const FEEDBACK_URL =
+  "mailto:lukas@gut-ventures.com?subject=Contract%20Definitions%20feedback";
 
 export function App() {
   const [settings, setSettings] = useState(() => loadSettings());
   const [scan, setScan] = useState<ScanResult | undefined>();
   const [selectedId, setSelectedId] = useState<string | undefined>();
-  const [selectedOccurrenceIndex, setSelectedOccurrenceIndex] = useState(0);
+  const [selectedOccurrenceIndex, setSelectedOccurrenceIndex] = useState(-1);
   const [query, setQuery] = useState("");
-  const [documentKey, setDocumentKey] = useState<string>("demo-document");
-  const [status, setStatus] = useState<{ type: Status; message: string }>({
-    type: "idle",
-    message: "Ready",
-  });
+  const [view, setView] = useState<AppView>("initializing");
+  const [statusMessage, setStatusMessage] = useState("Scanning this document locally…");
+  const [statusTone, setStatusTone] = useState<StatusTone>("neutral");
+  const [errorMessage, setErrorMessage] = useState("");
   const [inlineCount, setInlineCount] = useState(0);
   const [annotationsAvailable, setAnnotationsAvailable] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isHighlighting, setIsHighlighting] = useState(false);
+  const [infoView, setInfoView] = useState<InfoView | undefined>();
+  const [pinnedDefinitionIds, setPinnedDefinitionIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [definitionScrollRequest, setDefinitionScrollRequest] = useState(0);
 
-  const paragraphsRef = useRef<DocumentParagraph[]>([]);
   const scanRef = useRef<ScanResult | undefined>();
   const selectedIdRef = useRef<string | undefined>();
   const suppressSelectionUntilRef = useRef(0);
+  const menuRef = useRef<HTMLDetailsElement>(null);
 
   useEffect(() => {
     saveSettings(settings);
@@ -65,27 +93,68 @@ export function App() {
   }, [selectedId]);
 
   useEffect(() => {
+    if (!infoView) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setInfoView(undefined);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [infoView]);
+
+  useEffect(() => {
+    const handlePointerDown = (event: PointerEvent) => {
+      if (
+        menuRef.current?.open &&
+        event.target instanceof Node &&
+        !menuRef.current.contains(event.target)
+      ) {
+        menuRef.current.open = false;
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && menuRef.current?.open) {
+        menuRef.current.open = false;
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+
+  useEffect(() => {
     let unsubscribeSelection: () => void = () => undefined;
     let cancelled = false;
 
     async function initialize() {
+      clearLegacyCachedScans();
+
       const environment = await waitForOffice();
       if (cancelled) return;
 
-      setAnnotationsAvailable(supportsAnnotations());
-      const key = await getDocumentKey();
-      setDocumentKey(key);
-
-      if (!environment.available) {
-        setStatus({ type: "warning", message: environment.reason ?? "Demo mode active" });
+      const isBrowserPreview = !environment.available && import.meta.env.DEV;
+      if (!environment.available && !isBrowserPreview) {
+        setView("outside-word");
+        setStatusMessage("Microsoft Word is required");
+        setErrorMessage(
+          environment.reason ?? "Open this add-in in Microsoft Word to analyze a document.",
+        );
+        return;
       }
 
-      const cached = loadCachedScan(key);
-      if (cached) {
-        setScan(cached);
-        updateSelectedId(cached.definitions[0]?.id);
-        setSelectedOccurrenceIndex(0);
-        setStatus({ type: "ready", message: "Locally saved scan loaded" });
+      const canAnnotate = environment.available && supportsAnnotations();
+      setAnnotationsAvailable(canAnnotate);
+
+      if (!canAnnotate && settings.inlineMode !== "off") {
+        setSettings((current) => ({ ...current, inlineMode: "off" }));
       }
 
       unsubscribeSelection = onSelectionChanged((selectedText) => {
@@ -94,11 +163,19 @@ export function App() {
         const currentScan = scanRef.current;
         if (!currentScan || !selectedText.trim()) return;
         const definition = findDefinitionForText(selectedText, currentScan.definitions);
-        if (definition) activateDefinition(definition.id);
+        if (!definition) return;
+
+        activateDefinition(definition.id, undefined, true);
+      });
+
+      await runScan({
+        canAnnotate,
+        isBrowserPreview,
+        isCancelled: () => cancelled,
       });
     }
 
-    initialize();
+    void initialize();
     return () => {
       cancelled = true;
       unsubscribeSelection();
@@ -118,11 +195,10 @@ export function App() {
   const filteredDefinitions = useMemo(() => {
     if (!scan) return [];
     const normalizedQuery = query.trim().toLocaleLowerCase();
-    if (!normalizedQuery) return scan.definitions;
     return scan.definitions.filter(
       (definition) =>
-        definition.term.toLocaleLowerCase().includes(normalizedQuery) ||
-        definition.definition.toLocaleLowerCase().includes(normalizedQuery),
+        !normalizedQuery ||
+        definition.term.toLocaleLowerCase().includes(normalizedQuery),
     );
   }, [query, scan]);
 
@@ -134,137 +210,208 @@ export function App() {
     return counts;
   }, [scan]);
 
-  async function handleScan() {
-    setStatus({ type: "loading", message: "Scanning document locally" });
+  useEffect(() => {
+    if (!selectedId) return;
+    if (filteredDefinitions.some((definition) => definition.id === selectedId)) return;
+
+    updateSelectedId(undefined);
+    setSelectedOccurrenceIndex(-1);
+  }, [filteredDefinitions, selectedId]);
+  async function runScan(
+    options: {
+      background?: boolean;
+      canAnnotate?: boolean;
+      isBrowserPreview?: boolean;
+      isCancelled?: () => boolean;
+    } = {},
+  ) {
+    const keepCurrentResults = Boolean(options.background && scanRef.current?.definitions.length);
+    const cancelled = options.isCancelled ?? (() => false);
+    const canAnnotate = options.canAnnotate ?? annotationsAvailable;
+
+    setErrorMessage("");
     setInlineCount(0);
+    if (keepCurrentResults) {
+      setIsRefreshing(true);
+      setStatusTone("neutral");
+      setStatusMessage(
+        options.isBrowserPreview ? "Browser preview · Updating…" : "Updating definitions…",
+      );
+    } else {
+      setView("scanning");
+      setStatusTone("neutral");
+      setStatusMessage("Scanning this document locally…");
+      scanRef.current = undefined;
+      setScan(undefined);
+      updateSelectedId(undefined);
+    }
 
     try {
       const paragraphs = await readDocumentParagraphs();
-      paragraphsRef.current = paragraphs;
-      const result = scanDocument(paragraphs, { language: "auto" });
-      const firstDefinitionId = result.definitions[0]?.id;
-      setScan(result);
-      updateSelectedId(firstDefinitionId);
-      setSelectedOccurrenceIndex(0);
+      if (cancelled()) return;
 
-      saveCachedScan(documentKey, result);
+      const result = scanDocument(paragraphs, { language: "en" });
+      if (cancelled()) return;
+      installScan(result);
 
-      if (annotationsAvailable && settings.inlineMode === "all") {
-        await applyAnnotations(result, paragraphs, "all");
+      if (!result.definitions.length) {
+        await clearInlineAnnotations();
+        if (cancelled()) return;
+        setSettings((current) => ({ ...current, inlineMode: "off" }));
+        setView("empty");
+        setStatusTone("warning");
+        setStatusMessage("No definitions found");
+        return;
+      }
+
+      setView("ready");
+      setStatusTone(result.warnings.length ? "warning" : "success");
+      setStatusMessage(
+        options.isBrowserPreview
+          ? `Browser preview · ${formatDefinitionCount(result.definitions.length)}`
+          : `${formatDefinitionCount(result.definitions.length)} · Updated just now`,
+      );
+
+      if (canAnnotate && settings.inlineMode === "all") {
+        try {
+          const count = await applyAnnotationsToResult(result, "all");
+          if (cancelled()) return;
+          setInlineCount(count);
+          setStatusMessage(
+            `${formatDefinitionCount(result.definitions.length)} · ${formatHighlightCount(count)}`,
+          );
+        } catch {
+          setSettings((current) => ({ ...current, inlineMode: "off" }));
+          setStatusTone("warning");
+          setStatusMessage(
+            `${formatDefinitionCount(result.definitions.length)} · Highlights unavailable`,
+          );
+        }
       } else {
-        if (settings.inlineMode !== "off") {
+        await clearInlineAnnotations();
+        if (!canAnnotate && settings.inlineMode !== "off") {
           setSettings((current) => ({ ...current, inlineMode: "off" }));
         }
-        await clearInlineAnnotations();
-        setStatus({
-          type: result.warnings.length ? "warning" : "ready",
-          message: `${result.stats.definitionsFound} definitions, ${result.stats.occurrencesFound} occurrences`,
-        });
       }
-    } catch (error) {
-      setStatus({
-        type: "error",
-        message: error instanceof Error ? error.message : "Scan failed",
-      });
-    }
-  }
-
-  async function handleInlineToggle(enabled: boolean) {
-    const nextInlineMode = enabled ? "all" : "off";
-    setSettings((current) => ({ ...current, inlineMode: nextInlineMode }));
-    setInlineCount(0);
-
-    if (!enabled) {
-      await clearInlineAnnotations();
-      setStatus({ type: "ready", message: "Inline highlights removed" });
-      return;
-    }
-
-    if (!scan) {
-      setStatus({ type: "warning", message: "Scan the document before enabling inline mode" });
-      return;
-    }
-
-    try {
-      const paragraphs = await ensureParagraphs();
-      await applyAnnotations(scan, paragraphs, "all");
-    } catch (error) {
-      setStatus({
-        type: "error",
-        message: error instanceof Error ? error.message : "Inline highlighting failed",
-      });
+    } catch {
+      if (keepCurrentResults && scanRef.current?.definitions.length) {
+        setView("ready");
+        setStatusTone("warning");
+        setStatusMessage("Showing current results · Refresh failed");
+      } else {
+        setView("error");
+        setStatusTone("warning");
+        setStatusMessage("Document scan failed");
+        setErrorMessage(
+          "We couldn’t read this document. Make sure a Word document is open and try again.",
+        );
+      }
+    } finally {
+      if (!cancelled()) setIsRefreshing(false);
     }
   }
 
   async function handleHighlightSelectedDefinition() {
-    if (!scan || !selectedId) {
-      setStatus({ type: "warning", message: "Select a definition first" });
-      return;
-    }
+    if (!scan || !selectedId || !selectedDefinition) return;
 
+    setIsHighlighting(true);
     try {
-      const paragraphs = await ensureParagraphs();
-      await applyAnnotations(scan, paragraphs, "selected", selectedId);
+      const count = await applyAnnotationsToResult(scan, "selected", selectedId);
       setSettings((current) => ({ ...current, inlineMode: "selected" }));
-    } catch (error) {
-      setStatus({
-        type: "error",
-        message: error instanceof Error ? error.message : "Highlighting failed",
-      });
+      setInlineCount(count);
+      setStatusTone("success");
+      setStatusMessage(`${formatHighlightCount(count)} for ${selectedDefinition.term}`);
+    } catch {
+      setStatusTone("warning");
+      setStatusMessage("Highlights are unavailable in this version of Word");
+    } finally {
+      setIsHighlighting(false);
     }
   }
 
-  async function applyAnnotations(
+  async function handleHighlightAllDefinitions() {
+    if (!scan) return;
+
+    closeMenu();
+    setIsHighlighting(true);
+    try {
+      const count = await applyAnnotationsToResult(scan, "all");
+      setSettings((current) => ({ ...current, inlineMode: "all" }));
+      setInlineCount(count);
+      setStatusTone("success");
+      setStatusMessage(
+        `${formatDefinitionCount(scan.definitions.length)} · ${formatHighlightCount(count)}`,
+      );
+    } catch {
+      setStatusTone("warning");
+      setStatusMessage("Highlights are unavailable in this version of Word");
+    } finally {
+      setIsHighlighting(false);
+    }
+  }
+
+  async function handleRemoveHighlights() {
+    closeMenu();
+    setIsHighlighting(true);
+    try {
+      await clearInlineAnnotations();
+      setSettings((current) => ({ ...current, inlineMode: "off" }));
+      setInlineCount(0);
+      setStatusTone("success");
+      setStatusMessage(
+        scan ? `${formatDefinitionCount(scan.definitions.length)} · Highlights removed` : "Highlights removed",
+      );
+    } finally {
+      setIsHighlighting(false);
+    }
+  }
+
+  async function applyAnnotationsToResult(
     result: ScanResult,
-    paragraphs: DocumentParagraph[],
     inlineMode: Exclude<InlineMode, "off">,
     definitionId?: string,
   ) {
-    if (!annotationsAvailable) {
-      throw new Error("Inline mode is not available in this version of Word.");
-    }
-
     const visibleDefinitions =
       inlineMode === "all"
         ? result.definitions
         : result.definitions.filter((definition) => definition.id === definitionId);
-    const uncappedOccurrences =
+    const visibleOccurrences =
       inlineMode === "all"
         ? result.occurrences
         : result.occurrences.filter((occurrence) => occurrence.definitionId === definitionId);
 
-    setStatus({ type: "loading", message: "Creating inline highlights" });
-    const count = await applyInlineAnnotations(
-      paragraphs,
+    return applyInlineAnnotations(
       visibleDefinitions,
-      uncappedOccurrences,
-      activateDefinition,
+      visibleOccurrences,
+      (definitionId, occurrenceId) =>
+        activateDefinition(definitionId, occurrenceId, true),
     );
-    setInlineCount(count);
-    setStatus({
-      type: "ready",
-      message:
-        inlineMode === "all"
-          ? `${count} inline highlights active`
-          : `${count} highlights for the current term`,
-    });
   }
 
-  async function handleClearCache() {
-    clearCachedScan(documentKey);
-    await clearInlineAnnotations();
-    setScan(undefined);
-    updateSelectedId(undefined);
-    setSelectedOccurrenceIndex(0);
-    setInlineCount(0);
-    setSettings((current) => ({ ...current, inlineMode: "off" }));
-    setStatus({ type: "ready", message: "Local data for this document deleted" });
+  function installScan(result: ScanResult) {
+    scanRef.current = result;
+    setScan(result);
+
+    const currentSelection = selectedIdRef.current;
+    const nextSelection =
+      currentSelection && result.definitions.some((definition) => definition.id === currentSelection)
+        ? currentSelection
+        : undefined;
+    updateSelectedId(nextSelection);
+    setSelectedOccurrenceIndex(-1);
   }
 
-  function activateDefinition(definitionId: string, occurrenceId?: string) {
+  function activateDefinition(
+    definitionId: string,
+    occurrenceId?: string,
+    scrollIntoView = false,
+  ) {
     const currentScan = scanRef.current;
     const isSameDefinition = definitionId === selectedIdRef.current;
     updateSelectedId(definitionId);
+    if (scrollIntoView) {
+      setDefinitionScrollRequest((current) => current + 1);
+    }
 
     const definitionOccurrences =
       currentScan?.occurrences.filter((occurrence) => occurrence.definitionId === definitionId) ?? [];
@@ -274,15 +421,36 @@ export function App() {
     if (occurrenceIndex >= 0) {
       setSelectedOccurrenceIndex(occurrenceIndex);
     } else if (!isSameDefinition) {
-      setSelectedOccurrenceIndex(0);
+      setSelectedOccurrenceIndex(-1);
     }
   }
 
-  async function ensureParagraphs(): Promise<DocumentParagraph[]> {
-    if (paragraphsRef.current.length) return paragraphsRef.current;
-    const paragraphs = await readDocumentParagraphs();
-    paragraphsRef.current = paragraphs;
-    return paragraphs;
+  function toggleDefinition(definitionId: string) {
+    if (definitionId === selectedIdRef.current) {
+      updateSelectedId(undefined);
+      setSelectedOccurrenceIndex(-1);
+      return;
+    }
+
+    activateDefinition(definitionId);
+  }
+
+  function togglePinnedDefinition(definitionId: string) {
+    const isPinned = pinnedDefinitionIds.has(definitionId);
+    setPinnedDefinitionIds((current) => {
+      const next = new Set(current);
+      if (next.has(definitionId)) {
+        next.delete(definitionId);
+      } else {
+        next.add(definitionId);
+      }
+      return next;
+    });
+
+    if (!isPinned && definitionId === selectedIdRef.current) {
+      updateSelectedId(undefined);
+      setSelectedOccurrenceIndex(-1);
+    }
   }
 
   function updateSelectedId(nextSelectedId: string | undefined) {
@@ -316,77 +484,227 @@ export function App() {
     suppressSelectionEvents(1200);
   }
 
+  function closeMenu() {
+    if (menuRef.current) menuRef.current.open = false;
+  }
+
+  function openInfo(nextView: InfoView) {
+    closeMenu();
+    setInfoView(nextView);
+  }
+
+  const canRefresh = view === "ready" || view === "empty" || view === "error";
+  const highlightsActive = settings.inlineMode !== "off" && inlineCount > 0;
+  const canToggleAllHighlights = Boolean(annotationsAvailable && scan?.definitions.length);
+
   return (
     <main className="app-shell">
       <header className="app-header">
-        <div>
-          <h1>Definitions</h1>
-          <p>{status.message}</p>
+        <div className="app-title">
+          <h1>Contract Definitions</h1>
+          <StatusLine message={statusMessage} tone={statusTone} loading={isRefreshing} />
         </div>
-        <StatusBadge status={status.type} />
+
+        <details className="app-menu" ref={menuRef}>
+          <summary className="icon-button" aria-label="Open menu">
+            <MoreHorizontal aria-hidden="true" size={19} />
+          </summary>
+          <div className="menu-popover">
+            <button type="button" onClick={() => openInfo("about")}>
+              <Info aria-hidden="true" size={16} />
+              About Contract Definitions
+            </button>
+            <button type="button" onClick={() => openInfo("privacy")}>
+              <ShieldCheck aria-hidden="true" size={16} />
+              Privacy
+            </button>
+            <a href={FEEDBACK_URL} onClick={closeMenu}>
+              <MessageSquare aria-hidden="true" size={16} />
+              Send feedback
+            </a>
+            <a href={CUSTOM_SOLUTIONS_URL} target="_blank" rel="noreferrer" onClick={closeMenu}>
+              <ExternalLink aria-hidden="true" size={16} />
+              GUT Ventures - Custom Legal Tech solutions
+            </a>
+          </div>
+        </details>
       </header>
 
-      <section className="toolbar" aria-label="Actions">
-        <button className="primary-button" type="button" onClick={handleScan} disabled={status.type === "loading"}>
-          {status.type === "loading" ? <Loader2 className="spin" size={16} /> : <ListRestart size={16} />}
-          Scan
-        </button>
+      {canRefresh ? (
+        <section className="app-actions" aria-label="Document actions">
+          <button
+            className="app-action-button refresh-action"
+            type="button"
+            disabled={isRefreshing}
+            onClick={() =>
+              void runScan({
+                background: Boolean(scanRef.current?.definitions.length),
+                canAnnotate: annotationsAvailable,
+              })
+            }
+          >
+            <RefreshCw aria-hidden="true" size={15} />
+            <span>Refresh</span>
+          </button>
 
-        <button
-          className={settings.inlineMode !== "off" ? "toggle-button active" : "toggle-button"}
-          type="button"
-          onClick={() => void handleInlineToggle(settings.inlineMode === "off")}
-          disabled={!scan || !annotationsAvailable || status.type === "loading"}
-          title={annotationsAvailable ? "Turn inline highlights on or off" : "WordApi 1.8 required"}
-        >
-          <Highlighter size={16} />
-          Inline
-        </button>
-
-        <button className="icon-button" type="button" onClick={() => void handleClearCache()} title="Clear local cache">
-          <Eraser size={16} />
-        </button>
-      </section>
-
-      {scan?.warnings.length ? (
-        <section className="warning-list" aria-label="Warnings">
-          {scan.warnings.map((warning) => (
-            <p key={warning}>{warning}</p>
-          ))}
+          {canToggleAllHighlights ? (
+            <button
+              className={`app-action-button highlight-action${highlightsActive ? " active" : ""}`}
+              type="button"
+              aria-pressed={highlightsActive}
+              title={highlightsActive ? "Remove highlights" : "Highlight all defined terms"}
+              disabled={isHighlighting}
+              onClick={() =>
+                void (highlightsActive
+                  ? handleRemoveHighlights()
+                  : handleHighlightAllDefinitions())
+              }
+            >
+              <Highlighter aria-hidden="true" size={15} />
+              <span>{highlightsActive ? "Remove highlights" : "Highlight all defined terms"}</span>
+            </button>
+          ) : null}
         </section>
       ) : null}
 
-      <DefinitionDetails
-        definition={selectedDefinition}
-        occurrenceCount={selectedId ? occurrenceCountByDefinition.get(selectedId) ?? 0 : 0}
-        activeOccurrences={activeOccurrences}
-        selectedOccurrenceIndex={selectedOccurrenceIndex}
-        inlineCount={inlineCount}
-        onJumpDefinition={() => void handleDefinitionJump()}
-        onHighlightDefinition={() => void handleHighlightSelectedDefinition()}
-        onPreviousOccurrence={() => void handleOccurrenceJump(selectedOccurrenceIndex - 1)}
-        onNextOccurrence={() => void handleOccurrenceJump(selectedOccurrenceIndex + 1)}
-      />
+      <section className="app-content">
+        {view === "initializing" || view === "scanning" ? (
+          <LoadingState />
+        ) : view === "ready" && scan ? (
+          <section className="result-view">
+            {scan.warnings.filter((warning) => !warning.startsWith("No definitions")).length ? (
+              <section className="warning-list" aria-label="Scan notices">
+                {scan.warnings
+                  .filter((warning) => !warning.startsWith("No definitions"))
+                  .map((warning) => (
+                    <p key={warning}>{warning}</p>
+                  ))}
+              </section>
+            ) : null}
 
-      <section className="search-row">
-        <Search size={16} />
-        <input
-          type="search"
-          placeholder="Search definitions"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-        />
+            <section className="definition-layout">
+              <div className="list-heading">
+                <h2>Definitions</h2>
+                <span>{scan.definitions.length}</span>
+              </div>
+              <section className="search-row" aria-label="Search definitions">
+                <Search aria-hidden="true" size={16} />
+                <input
+                  type="search"
+                  aria-label="Search definitions"
+                  placeholder="Search definitions…"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                />
+              </section>
+              <DefinitionList
+                definitions={filteredDefinitions}
+                occurrenceCountByDefinition={occurrenceCountByDefinition}
+                selectedId={selectedId}
+                selectedDefinition={selectedDefinition}
+                activeOccurrences={activeOccurrences}
+                selectedOccurrenceIndex={selectedOccurrenceIndex}
+                pinnedDefinitionIds={pinnedDefinitionIds}
+                scrollRequest={definitionScrollRequest}
+                annotationsAvailable={annotationsAvailable}
+                isHighlighting={isHighlighting}
+                query={query}
+                onClearQuery={() => setQuery("")}
+                onToggle={toggleDefinition}
+                onTogglePin={togglePinnedDefinition}
+                onJumpDefinition={() => void handleDefinitionJump()}
+                onHighlightDefinition={() => void handleHighlightSelectedDefinition()}
+                onCurrentOccurrence={() => void handleOccurrenceJump(selectedOccurrenceIndex)}
+                onPreviousOccurrence={() => void handleOccurrenceJump(selectedOccurrenceIndex - 1)}
+                onNextOccurrence={() => void handleOccurrenceJump(selectedOccurrenceIndex + 1)}
+              />
+            </section>
+          </section>
+        ) : view === "empty" ? (
+          <MessageState
+            icon={<Search aria-hidden="true" size={24} />}
+            title="No definitions found"
+            description="We couldn’t find a standard definitions section in this document."
+            actionLabel="Scan again"
+            onAction={() => void runScan({ canAnnotate: annotationsAvailable })}
+            secondary={
+              <a href={FEEDBACK_URL}>
+                Is your contract structured differently? Send feedback
+                <ExternalLink aria-hidden="true" size={14} />
+              </a>
+            }
+          />
+        ) : view === "error" ? (
+          <MessageState
+            icon={<AlertCircle aria-hidden="true" size={24} />}
+            title="We couldn’t read this document"
+            description={
+              errorMessage || "Make sure a Word document is open and try again."
+            }
+            actionLabel="Try again"
+            onAction={() => void runScan({ canAnnotate: annotationsAvailable })}
+          />
+        ) : (
+          <MessageState
+            icon={<AlertCircle aria-hidden="true" size={24} />}
+            title="Open this add-in in Microsoft Word"
+            description={
+              errorMessage || "A Word document is required before it can be analyzed."
+            }
+          />
+        )}
       </section>
 
-      <section className="definition-layout">
-        <DefinitionList
-          definitions={filteredDefinitions}
-          occurrenceCountByDefinition={occurrenceCountByDefinition}
-          selectedId={selectedId}
-          onSelect={(definitionId) => activateDefinition(definitionId)}
-        />
-      </section>
+        <footer className="app-footer">
+          <a href={GUT_VENTURES_URL} target="_blank" rel="noreferrer">
+            {"Built by "}
+            <span className="footer-brand">GUT Ventures</span>
+            {" · Legal Tech"}
+            <ExternalLink aria-hidden="true" size={12} />
+          </a>
+        </footer>
+
+      {infoView ? <InfoDialog view={infoView} onClose={() => setInfoView(undefined)} /> : null}
     </main>
+  );
+}
+
+function LoadingState() {
+  return (
+    <section className="loading-state" aria-live="polite">
+      <Loader2 className="spin" aria-hidden="true" size={26} />
+      <div>
+        <h2>Scanning this document locally…</h2>
+        <p>Your document never leaves Word.</p>
+      </div>
+      <div className="privacy-assurance" aria-label="Privacy assurances">
+        <span>No uploads</span>
+        <span>No AI</span>
+      </div>
+    </section>
+  );
+}
+
+function StatusLine({
+  message,
+  tone,
+  loading,
+}: {
+  message: string;
+  tone: StatusTone;
+  loading: boolean;
+}) {
+  return (
+    <p className={`status-line ${tone}`}>
+      {loading ? (
+        <Loader2 className="spin" aria-hidden="true" size={13} />
+      ) : tone === "warning" ? (
+        <AlertCircle aria-hidden="true" size={13} />
+      ) : tone === "success" ? (
+        <CheckCircle2 aria-hidden="true" size={13} />
+      ) : null}
+      <span>{message}</span>
+    </p>
   );
 }
 
@@ -394,134 +712,428 @@ function DefinitionList({
   definitions,
   occurrenceCountByDefinition,
   selectedId,
-  onSelect,
+  selectedDefinition,
+  activeOccurrences,
+  selectedOccurrenceIndex,
+  pinnedDefinitionIds,
+  scrollRequest,
+  annotationsAvailable,
+  isHighlighting,
+  query,
+  onClearQuery,
+  onToggle,
+  onTogglePin,
+  onJumpDefinition,
+  onHighlightDefinition,
+  onCurrentOccurrence,
+  onPreviousOccurrence,
+  onNextOccurrence,
 }: {
   definitions: DefinitionEntry[];
   occurrenceCountByDefinition: Map<string, number>;
   selectedId?: string;
-  onSelect: (id: string) => void;
+  selectedDefinition?: DefinitionEntry;
+  activeOccurrences: Occurrence[];
+  selectedOccurrenceIndex: number;
+  pinnedDefinitionIds: Set<string>;
+  scrollRequest: number;
+  annotationsAvailable: boolean;
+  isHighlighting: boolean;
+  query: string;
+  onClearQuery: () => void;
+  onToggle: (id: string) => void;
+  onTogglePin: (id: string) => void;
+  onJumpDefinition: () => void;
+  onHighlightDefinition: () => void;
+  onCurrentOccurrence: () => void;
+  onPreviousOccurrence: () => void;
+  onNextOccurrence: () => void;
 }) {
+  const selectedRowRef = useRef<HTMLDivElement>(null);
+  const handledScrollRequestRef = useRef(0);
+  const [pinnedSectionExpanded, setPinnedSectionExpanded] = useState(true);
+  const [scrollSpacerDefinitionId, setScrollSpacerDefinitionId] = useState<string>();
+  const pinnedDefinitions = definitions.filter((definition) =>
+    pinnedDefinitionIds.has(definition.id),
+  );
+  const regularDefinitions = definitions.filter(
+    (definition) => !pinnedDefinitionIds.has(definition.id),
+  );
+  const selectedIsPinned = Boolean(selectedId && pinnedDefinitionIds.has(selectedId));
+
+  useEffect(() => {
+    if (scrollRequest === handledScrollRequestRef.current) return;
+    if (!selectedId) {
+      handledScrollRequestRef.current = scrollRequest;
+      return;
+    }
+    if (selectedIsPinned && !pinnedSectionExpanded) {
+      setPinnedSectionExpanded(true);
+      return;
+    }
+    if (!selectedIsPinned && scrollSpacerDefinitionId !== selectedId) {
+      setScrollSpacerDefinitionId(selectedId);
+      return;
+    }
+
+    selectedRowRef.current?.scrollIntoView({ block: "start", behavior: "auto" });
+    handledScrollRequestRef.current = scrollRequest;
+  }, [
+    pinnedSectionExpanded,
+    scrollRequest,
+    scrollSpacerDefinitionId,
+    selectedId,
+    selectedIsPinned,
+  ]);
+
+  const regularScrollSpacerActive = Boolean(
+    selectedId &&
+      !selectedIsPinned &&
+      scrollSpacerDefinitionId === selectedId,
+  );
+
+  function releaseScrollSpacer() {
+    setScrollSpacerDefinitionId(undefined);
+  }
+
   if (!definitions.length) {
-    return <div className="empty-state">No definitions in the current scan.</div>;
+    return (
+      <div className="search-empty-state">
+        <p>No definitions match “{query.trim()}”.</p>
+        <button type="button" onClick={onClearQuery}>
+          Clear search
+        </button>
+      </div>
+    );
+  }
+
+  function renderDefinition(definition: DefinitionEntry) {
+    const count = occurrenceCountByDefinition.get(definition.id) ?? 0;
+    const isExpanded = definition.id === selectedId;
+    const isPinned = pinnedDefinitionIds.has(definition.id);
+    const detailId = `definition-details-${definition.id}`;
+    const triggerId = `definition-trigger-${definition.id}`;
+
+    return (
+      <div
+        className={isExpanded ? "definition-item expanded" : "definition-item"}
+        key={definition.id}
+      >
+        <div
+          className={isExpanded ? "definition-row selected" : "definition-row"}
+          ref={isExpanded ? selectedRowRef : undefined}
+          onClick={() => onToggle(definition.id)}
+        >
+          <button
+            className="definition-toggle"
+            type="button"
+            id={triggerId}
+            aria-controls={detailId}
+            aria-expanded={isExpanded}
+            aria-label={`${definition.term}, ${formatUseCount(count)}`}
+          >
+            <span className="definition-term">{definition.term}</span>
+          </button>
+          <button
+            className={isPinned ? "definition-pin pinned" : "definition-pin"}
+            type="button"
+            aria-label={`${isPinned ? "Unpin" : "Pin"} ${definition.term}`}
+            aria-pressed={isPinned}
+            title={isPinned ? "Unpin definition" : "Pin definition"}
+            onClick={(event) => {
+              event.stopPropagation();
+              onTogglePin(definition.id);
+            }}
+          >
+            <Pin aria-hidden="true" size={14} />
+          </button>
+          <span className="definition-meta">{formatUseCount(count)}</span>
+        </div>
+
+        {isExpanded && selectedDefinition?.id === definition.id ? (
+          <DefinitionDetails
+            id={detailId}
+            labelledBy={triggerId}
+            definition={selectedDefinition}
+            activeOccurrences={activeOccurrences}
+            selectedOccurrenceIndex={selectedOccurrenceIndex}
+            annotationsAvailable={annotationsAvailable}
+            isHighlighting={isHighlighting}
+            onJumpDefinition={onJumpDefinition}
+            onHighlightDefinition={onHighlightDefinition}
+            onCurrentOccurrence={onCurrentOccurrence}
+            onPreviousOccurrence={onPreviousOccurrence}
+            onNextOccurrence={onNextOccurrence}
+          />
+        ) : null}
+      </div>
+    );
   }
 
   return (
-    <nav className="definition-list" aria-label="Definitions">
-      {definitions.map((definition) => (
-        <button
-          className={definition.id === selectedId ? "definition-row selected" : "definition-row"}
-          type="button"
-          key={definition.id}
-          onClick={() => onSelect(definition.id)}
+    <div className="definition-lists">
+      {pinnedDefinitions.length ? (
+        <section className="pinned-section" aria-label="Pinned definitions">
+          <button
+            className="pinned-section-toggle"
+            type="button"
+            aria-controls="pinned-definitions"
+            aria-expanded={pinnedSectionExpanded}
+            onClick={() => setPinnedSectionExpanded((current) => !current)}
+          >
+            <span className="pinned-section-title">
+              <Pin aria-hidden="true" size={13} />
+              Pinned
+            </span>
+            <span className="pinned-section-meta">
+              {pinnedDefinitions.length}
+              <ChevronDown className="pinned-section-chevron" aria-hidden="true" size={15} />
+            </span>
+          </button>
+          {pinnedSectionExpanded ? (
+            <nav
+              className={
+                selectedIsPinned
+                  ? "pinned-definition-list has-selection"
+                  : "pinned-definition-list"
+              }
+              id="pinned-definitions"
+              aria-label="Pinned definitions"
+            >
+              {pinnedDefinitions.map(renderDefinition)}
+            </nav>
+          ) : null}
+        </section>
+      ) : null}
+
+      {regularDefinitions.length ? (
+        <nav
+          className={
+            regularScrollSpacerActive
+              ? "definition-list has-scroll-spacer"
+              : "definition-list"
+          }
+          aria-label="Definitions"
+          onWheel={releaseScrollSpacer}
+          onTouchStart={releaseScrollSpacer}
+          onPointerDown={(event) => {
+            if (event.target === event.currentTarget) releaseScrollSpacer();
+          }}
+          onKeyDown={(event) => {
+            if (
+              ["ArrowDown", "ArrowUp", "PageDown", "PageUp", "End", "Home"].includes(event.key)
+            ) {
+              releaseScrollSpacer();
+            }
+          }}
         >
-          <span className="definition-term">{definition.term}</span>
-          <span className="definition-meta">{occurrenceCountByDefinition.get(definition.id) ?? 0}</span>
-        </button>
-      ))}
-    </nav>
+          {regularDefinitions.map(renderDefinition)}
+        </nav>
+      ) : (
+        <div className="search-empty-state">
+          <p>
+            {query.trim()
+              ? `No other definitions match “${query.trim()}”.`
+              : "All definitions are pinned."}
+          </p>
+          {query.trim() ? (
+            <button type="button" onClick={onClearQuery}>
+              Clear search
+            </button>
+          ) : null}
+        </div>
+      )}
+    </div>
   );
 }
 
 function DefinitionDetails({
+  id,
+  labelledBy,
   definition,
-  occurrenceCount,
   activeOccurrences,
   selectedOccurrenceIndex,
-  inlineCount,
+  annotationsAvailable,
+  isHighlighting,
   onJumpDefinition,
   onHighlightDefinition,
+  onCurrentOccurrence,
   onPreviousOccurrence,
   onNextOccurrence,
 }: {
+  id: string;
+  labelledBy: string;
   definition?: DefinitionEntry;
-  occurrenceCount: number;
   activeOccurrences: Occurrence[];
   selectedOccurrenceIndex: number;
-  inlineCount: number;
+  annotationsAvailable: boolean;
+  isHighlighting: boolean;
   onJumpDefinition: () => void;
   onHighlightDefinition: () => void;
+  onCurrentOccurrence: () => void;
   onPreviousOccurrence: () => void;
   onNextOccurrence: () => void;
 }) {
-  if (!definition) {
-    return (
-      <article className="definition-detail active-detail empty-state">
-        Scan the document or select a term.
-      </article>
-    );
-  }
+  if (!definition) return null;
 
-  const selectedOccurrence = activeOccurrences[selectedOccurrenceIndex];
-  const occurrencePosition = activeOccurrences.length ? selectedOccurrenceIndex + 1 : 0;
+  const selectedOccurrence = activeOccurrences[Math.max(selectedOccurrenceIndex, 0)];
 
   return (
-    <article className="definition-detail active-detail">
-      <div className="detail-heading">
-        <div>
-          <h2>{definition.term}</h2>
-        </div>
-        <div className="detail-actions">
-          <button className="icon-button" type="button" onClick={onHighlightDefinition} title="Highlight this term">
-            <Highlighter size={17} />
-          </button>
-          <button className="icon-button" type="button" onClick={onJumpDefinition} title="Jump to definition">
-            <ArrowUpRight size={17} />
-          </button>
-        </div>
-      </div>
-
+    <article className="definition-detail" id={id} aria-labelledby={labelledBy}>
       <p className="definition-copy">{definition.definition}</p>
 
-      <div className="occurrence-nav" aria-label="Occurrences">
-        <button
-          className="small-nav-button"
-          type="button"
-          onClick={onPreviousOccurrence}
-          disabled={selectedOccurrenceIndex <= 0}
-          title="Previous occurrence"
-        >
-          <ChevronLeft size={16} />
+      <div className="detail-actions">
+        <button className="action-button" type="button" onClick={onJumpDefinition}>
+          <ArrowUpRight aria-hidden="true" size={16} />
+          Go to definition
         </button>
-        <span>
-          Occurrence {occurrencePosition} / {activeOccurrences.length}
-        </span>
-        <button
-          className="small-nav-button"
-          type="button"
-          onClick={onNextOccurrence}
-          disabled={!activeOccurrences.length || selectedOccurrenceIndex >= activeOccurrences.length - 1}
-          title="Next occurrence"
-        >
-          <ChevronRight size={16} />
-        </button>
+        {annotationsAvailable && activeOccurrences.length ? (
+          <button
+            className="action-button"
+            type="button"
+            disabled={isHighlighting}
+            onClick={onHighlightDefinition}
+          >
+            {isHighlighting ? (
+              <Loader2 className="spin" aria-hidden="true" size={16} />
+            ) : (
+              <Highlighter aria-hidden="true" size={16} />
+            )}
+            Highlight this term
+          </button>
+        ) : null}
       </div>
 
-      {selectedOccurrence ? <OccurrenceContext occurrence={selectedOccurrence} /> : null}
-
-      <dl className="definition-facts">
-        <div>
-          <dt>Occurrences</dt>
-          <dd>{occurrenceCount}</dd>
-        </div>
-        <div>
-          <dt>Source</dt>
-          <dd>{definition.source}</dd>
-        </div>
-        <div>
-          <dt>Highlighted</dt>
-          <dd>{inlineCount}</dd>
-        </div>
-      </dl>
+      {activeOccurrences.length ? (
+        <>
+          <div
+            className={`occurrence-nav ${activeOccurrences.length === 1 ? "single" : "multiple"}`}
+            aria-label="Uses in this document"
+          >
+            {activeOccurrences.length === 1 ? (
+              <button className="occurrence-single" type="button" onClick={onCurrentOccurrence}>
+                <ArrowUpRight aria-hidden="true" size={15} />
+                Go to use
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={onPreviousOccurrence}
+                  disabled={selectedOccurrenceIndex <= 0}
+                >
+                  <ChevronLeft aria-hidden="true" size={15} />
+                  <span>Previous</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={onNextOccurrence}
+                  disabled={selectedOccurrenceIndex >= activeOccurrences.length - 1}
+                >
+                  <span>Next</span>
+                  <ChevronRight aria-hidden="true" size={15} />
+                </button>
+              </>
+            )}
+          </div>
+          {selectedOccurrence ? <OccurrenceContext occurrence={selectedOccurrence} /> : null}
+        </>
+      ) : (
+        <p className="no-occurrences">This term is not used elsewhere in the document.</p>
+      )}
     </article>
   );
 }
 
-function StatusBadge({ status }: { status: Status }) {
-  if (status === "loading") return <Loader2 className="status-icon spin" size={18} />;
-  if (status === "ready") return <CheckCircle2 className="status-icon ok" size={18} />;
-  if (status === "warning") return <CheckCircle2 className="status-icon warn" size={18} />;
-  if (status === "error") return <CheckCircle2 className="status-icon error" size={18} />;
-  return null;
+function MessageState({
+  icon,
+  title,
+  description,
+  actionLabel,
+  onAction,
+  secondary,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  actionLabel?: string;
+  onAction?: () => void;
+  secondary?: React.ReactNode;
+}) {
+  return (
+    <section className="message-state">
+      <span className="message-icon">{icon}</span>
+      <h2>{title}</h2>
+      <p>{description}</p>
+      {actionLabel && onAction ? (
+        <button className="message-action" type="button" onClick={onAction}>
+          <RefreshCw aria-hidden="true" size={16} />
+          {actionLabel}
+        </button>
+      ) : null}
+      {secondary ? <div className="message-secondary">{secondary}</div> : null}
+    </section>
+  );
+}
+
+function InfoDialog({ view, onClose }: { view: InfoView; onClose: () => void }) {
+  const isPrivacy = view === "privacy";
+  return (
+    <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
+      <section
+        className="modal-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="info-dialog-title"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <button className="modal-close" type="button" aria-label="Close" onClick={onClose}>
+          <X aria-hidden="true" size={18} />
+        </button>
+        <span className="modal-icon">
+          {isPrivacy ? <ShieldCheck aria-hidden="true" size={22} /> : <Info aria-hidden="true" size={22} />}
+        </span>
+        <h2 id="info-dialog-title">{isPrivacy ? "Privacy" : "About Contract Definitions"}</h2>
+        {isPrivacy ? (
+          <>
+            <p>
+              Contract text is analyzed locally inside the Word add-in. It is not uploaded to an
+              application server and is not sent to an AI service.
+            </p>
+            <p>
+              Contract text and scan results stay in memory only while the taskpane is open. Local
+              browser storage is used only for non-document preferences such as the highlighting
+              mode.
+            </p>
+          </>
+        ) : (
+          <>
+            <p>
+              Contract Definitions is a free, local-first Word add-in that makes defined terms easy
+              to find, review and navigate.
+            </p>
+            <p>
+              Built by GUT Ventures, a Vienna-based software company creating AI-enabled Legal Tech
+              products and custom solutions for contract, due diligence, KYC and legal workflows —
+              backed by more than a decade of Legal Tech experience.
+            </p>
+          </>
+        )}
+        {!isPrivacy ? (
+          <div className="modal-links">
+            <a className="primary" href={GUT_VENTURES_URL} target="_blank" rel="noreferrer">
+              Explore GUT Ventures
+              <ExternalLink aria-hidden="true" size={14} />
+            </a>
+            <a href={GITHUB_URL} target="_blank" rel="noreferrer">
+              <Github aria-hidden="true" size={14} />
+              GitHub
+            </a>
+          </div>
+        ) : null}
+      </section>
+    </div>
+  );
 }
 
 function OccurrenceContext({ occurrence }: { occurrence: Occurrence }) {
@@ -536,6 +1148,18 @@ function OccurrenceContext({ occurrence }: { occurrence: Occurrence }) {
       {occurrence.contextAfter ? <> {occurrence.contextAfter}</> : null}
     </p>
   );
+}
+
+function formatDefinitionCount(count: number) {
+  return `${count} ${count === 1 ? "definition" : "definitions"} found`;
+}
+
+function formatUseCount(count: number) {
+  return `${count} ${count === 1 ? "use" : "uses"}`;
+}
+
+function formatHighlightCount(count: number) {
+  return `${count} ${count === 1 ? "highlight" : "highlights"} active`;
 }
 
 function getOccurrenceIndexInParagraph(occurrence: Occurrence, activeOccurrences: Occurrence[]): number {

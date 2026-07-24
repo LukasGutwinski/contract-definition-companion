@@ -60,25 +60,25 @@ const START_PATTERNS: Array<{
   confidence: number;
 }> = [
   {
-    pattern: new RegExp(`^${QUOTED_TERM}\\s+${EN_VERB_PATTERN}\\b[\\s,:-]*(.+)$`, "iu"),
+    pattern: new RegExp(`^${QUOTED_TERM}\\s+${EN_VERB_PATTERN}\\b[\\s,:-]*(.*)$`, "iu"),
     language: "en",
     source: "quoted",
     confidence: 0.98,
   },
   {
-    pattern: new RegExp(`^${QUOTED_TERM}\\s+${DE_VERB_PATTERN}\\b[\\s,:-]*(.+)$`, "iu"),
+    pattern: new RegExp(`^${QUOTED_TERM}\\s+${DE_VERB_PATTERN}\\b[\\s,:-]*(.*)$`, "iu"),
     language: "de",
     source: "quoted",
     confidence: 0.98,
   },
   {
-    pattern: new RegExp(`^${TERM_BODY}\\s+${EN_VERB_PATTERN}\\b[\\s,:-]*(.+)$`, "iu"),
+    pattern: new RegExp(`^${TERM_BODY}\\s+${EN_VERB_PATTERN}\\b[\\s,:-]*(.*)$`, "iu"),
     language: "en",
     source: "unquoted",
     confidence: 0.78,
   },
   {
-    pattern: new RegExp(`^${TERM_BODY}\\s+${DE_VERB_PATTERN}\\b[\\s,:-]*(.+)$`, "iu"),
+    pattern: new RegExp(`^${TERM_BODY}\\s+${DE_VERB_PATTERN}\\b[\\s,:-]*(.*)$`, "iu"),
     language: "de",
     source: "unquoted",
     confidence: 0.78,
@@ -106,6 +106,7 @@ export function detectDefinitions(
         candidate: Candidate;
         paragraphId?: string;
         paragraphIndex?: number;
+        paragraphIndexes: number[];
         lineIndex: number;
         chunks: string[];
       }
@@ -127,6 +128,7 @@ export function detectDefinitions(
         confidence: active.candidate.confidence,
         paragraphId: active.paragraphId,
         paragraphIndex: active.paragraphIndex,
+        definitionParagraphIndexes: active.paragraphIndexes,
         lineIndex: active.lineIndex,
       });
     }
@@ -141,6 +143,7 @@ export function detectDefinitions(
         candidate: tableCandidate,
         paragraphId: line.id,
         paragraphIndex: line.index,
+        paragraphIndexes: [line.index],
         lineIndex: line.lineIndex,
         chunks: [tableCandidate.definition],
       };
@@ -155,14 +158,16 @@ export function detectDefinitions(
         candidate,
         paragraphId: line.id,
         paragraphIndex: line.index,
+        paragraphIndexes: [line.index],
         lineIndex: line.lineIndex,
         chunks: [candidate.definition],
       };
       continue;
     }
 
-    if (active && shouldContinueDefinition(line.text)) {
+    if (active && shouldContinueDefinition(active.chunks, line.text)) {
       active.chunks.push(line.text);
+      active.paragraphIndexes.push(line.index);
     } else {
       flush();
     }
@@ -268,11 +273,18 @@ function matchTableDefinition(text: string, language: ContractLanguage): Candida
   };
 }
 
-function shouldContinueDefinition(text: string): boolean {
-  if (!text) return false;
-  if (isMajorHeading(text)) return false;
-  if (/^(whereas|recitals|schedule|annex|anlage|präambel)\b/i.test(text)) return false;
-  return text.length > 2;
+function shouldContinueDefinition(currentChunks: string[], nextText: string): boolean {
+  if (!nextText || nextText.length <= 2) return false;
+  if (isMajorHeading(nextText)) return false;
+  if (/^(whereas|recitals|schedule|annex|anlage|präambel)\b/i.test(nextText)) return false;
+
+  const currentText = normalizeWhitespace(currentChunks.join(" "));
+  if (!currentText) return true;
+  if (/[,:(\[{/–—-]\s*$/.test(currentText)) return true;
+
+  return /\b(?:and|or|including|excluding|include|includes|of|in|to|for|from|under|with|without|by|as)\s*$/i.test(
+    currentText,
+  );
 }
 
 function stripListPrefix(text: string): string {
@@ -301,9 +313,22 @@ function dedupeDefinitions(definitions: DefinitionEntry[]): DefinitionEntry[] {
 
   for (const definition of definitions) {
     const existing = seen.get(definition.normalizedTerm);
-    if (!existing || existing.confidence < definition.confidence) {
+    if (!existing) {
       seen.set(definition.normalizedTerm, definition);
+      continue;
     }
+
+    const preferred =
+      existing.confidence < definition.confidence ? definition : existing;
+    seen.set(definition.normalizedTerm, {
+      ...preferred,
+      definitionParagraphIndexes: [
+        ...new Set([
+          ...existing.definitionParagraphIndexes,
+          ...definition.definitionParagraphIndexes,
+        ]),
+      ].sort((a, b) => a - b),
+    });
   }
 
   return [...seen.values()].sort((a, b) => a.term.localeCompare(b.term));

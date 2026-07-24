@@ -1,7 +1,8 @@
-import type { ContractLanguage, ScanResult } from "../parser/types";
+import type { ContractLanguage } from "../parser/types";
 
 const SETTINGS_KEY = "definition-companion:settings";
-const SCAN_PREFIX = "definition-companion:scan:";
+const LEGACY_SCAN_PREFIX = "definition-companion:scan:";
+const SETTINGS_VERSION = 2;
 
 export interface AppSettings {
   language: ContractLanguage;
@@ -11,8 +12,8 @@ export interface AppSettings {
 export type InlineMode = "off" | "selected" | "all";
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  language: "auto",
-  inlineMode: "off",
+  language: "en",
+  inlineMode: "all",
 };
 
 export function loadSettings(): AppSettings {
@@ -20,17 +21,22 @@ export function loadSettings(): AppSettings {
     const raw = window.localStorage.getItem(SETTINGS_KEY);
     if (!raw) return DEFAULT_SETTINGS;
 
-    const parsed = JSON.parse(raw) as Partial<AppSettings> & { inlineMode?: InlineMode | boolean };
+    const parsed = JSON.parse(raw) as Partial<AppSettings> & {
+      inlineMode?: InlineMode | boolean;
+      version?: number;
+    };
+    if (parsed.version !== SETTINGS_VERSION) return DEFAULT_SETTINGS;
+
     const inlineMode =
       typeof parsed.inlineMode === "boolean"
         ? parsed.inlineMode
           ? "all"
           : "off"
-        : parsed.inlineMode === "all"
-          ? "all"
-          : "off";
+        : parsed.inlineMode === "off"
+          ? "off"
+          : "all";
 
-    return { ...DEFAULT_SETTINGS, ...parsed, language: "auto", inlineMode };
+    return { ...DEFAULT_SETTINGS, ...parsed, language: "en", inlineMode };
   } catch {
     return DEFAULT_SETTINGS;
   }
@@ -38,39 +44,24 @@ export function loadSettings(): AppSettings {
 
 export function saveSettings(settings: AppSettings): void {
   try {
-    window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    window.localStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify({ ...settings, version: SETTINGS_VERSION }),
+    );
   } catch {
     // Browser storage can be disabled by policy. The app still works without persistence.
   }
 }
 
-export function loadCachedScan(documentKey: string): ScanResult | undefined {
+export function clearLegacyCachedScans(): void {
   try {
-    const raw = window.localStorage.getItem(SCAN_PREFIX + documentKey);
-    return raw ? JSON.parse(raw) : undefined;
+    for (let index = window.localStorage.length - 1; index >= 0; index -= 1) {
+      const key = window.localStorage.key(index);
+      if (key?.startsWith(LEGACY_SCAN_PREFIX)) {
+        window.localStorage.removeItem(key);
+      }
+    }
   } catch {
-    return undefined;
-  }
-}
-
-export function saveCachedScan(documentKey: string, scan: ScanResult): void {
-  try {
-    window.localStorage.setItem(
-      SCAN_PREFIX + documentKey,
-      JSON.stringify({
-        ...scan,
-        cachedAt: new Date().toISOString(),
-      }),
-    );
-  } catch {
-    // Large documents can exceed localStorage limits. Re-scanning remains available.
-  }
-}
-
-export function clearCachedScan(documentKey: string): void {
-  try {
-    window.localStorage.removeItem(SCAN_PREFIX + documentKey);
-  } catch {
-    // Ignore storage failures; cache clearing is best effort only.
+    // Storage may be disabled by policy. No new scan data is persisted.
   }
 }

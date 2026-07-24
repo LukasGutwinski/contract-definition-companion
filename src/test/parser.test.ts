@@ -32,6 +32,71 @@ describe("contract definition parser", () => {
     ]);
   });
 
+  it("excludes each term from its own definition while counting cross-references", () => {
+    const result = scanDocument(
+      paragraphs([
+        "1. Definitions",
+        "\"Seller\" means Example Seller GmbH (fictional).",
+        "\"Seller Group\" means",
+        "the Seller and each Affiliate, excluding the Company Group after Closing.",
+        "\"Seller Warranties\" means",
+        "the warranties given by the Seller under Clause 8.",
+        "\"Shares\" means the shares in the Company.",
+        "2. Signing",
+        "The Seller gives the Seller Warranties to the Seller Group.",
+      ]),
+      { language: "en" },
+    );
+
+    const sellerGroup = result.definitions.find(
+      (definition) => definition.term === "Seller Group",
+    );
+    expect(sellerGroup?.definitionParagraphIndexes).toEqual([2, 3]);
+    expect(result.occurrences.map((occurrence) => occurrence.term)).toEqual([
+      "Seller",
+      "Seller",
+      "Seller",
+      "Seller Warranties",
+      "Seller Group",
+    ]);
+    expect(result.occurrences.map((occurrence) => occurrence.paragraphIndex)).toEqual([
+      3,
+      5,
+      8,
+      8,
+      8,
+    ]);
+  });
+
+  it("counts a term used in another definition before its own definition", () => {
+    const result = scanDocument(
+      paragraphs([
+        "1. Definitions",
+        "\"Accounts\" means",
+        "the audited financial statements for the financial year ended on the Accounts Date.",
+        "\"Accounts Date\" means",
+        "31 December 2025.",
+      ]),
+      { language: "en" },
+    );
+
+    const accountsDate = result.definitions.find(
+      (definition) => definition.term === "Accounts Date",
+    );
+    expect(accountsDate).toBeDefined();
+    expect(
+      result.occurrences.filter(
+        (occurrence) => occurrence.definitionId === accountsDate?.id,
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        term: "Accounts Date",
+        paragraphIndex: 2,
+        contextHit: "Accounts Date",
+      }),
+    ]);
+  });
+
   it("extracts German guillemet-style definitions", () => {
     const result = scanDocument(
       paragraphs([

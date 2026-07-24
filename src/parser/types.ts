@@ -16,6 +16,7 @@ export interface DefinitionEntry {
   confidence: number;
   paragraphId?: string;
   paragraphIndex?: number;
+  definitionParagraphIndexes: number[];
   lineIndex: number;
 }
 

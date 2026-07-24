@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="Contract Definitions">
+  <path d="M9 5h26l12 12v42H9z" fill="#fff" stroke="#020a2f" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M35 5v12h12" fill="#e8f6fa" stroke="#020a2f" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M17 28h17" stroke="#f6b900" stroke-width="6" stroke-linecap="round"/>
+  <path d="M17 39h15M17 47h11" stroke="#020a2f" stroke-width="4" stroke-linecap="round"/>
+  <path d="M39 21h17v30l-8.5-6-8.5 6z" fill="#f6b900" stroke="#020a2f" stroke-width="4" stroke-linejoin="round"/>
+</svg>

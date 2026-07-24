@@ -1,12 +1,12 @@
 # Contract Definition Companion
 
-Local-first Word taskpane add-in for German and English contract definitions.
+Local-first Word taskpane add-in for English contract definitions.
 
 ## What It Does
 
-- Extracts defined terms from English and German contracts with deterministic parser rules.
+- Extracts defined terms from English contracts with deterministic parser rules.
 - Shows definitions in a Word taskpane.
-- Supports local persistence via browser/WebView storage.
+- Keeps contract text and scan results only in taskpane memory.
 - Supports an optional inline mode with Word Annotation APIs for temporary underlines and hover/click events.
 - Does not send contract text to an application server.
 
@@ -45,6 +45,6 @@ npm audit
 
 ## Privacy Model
 
-The parser runs in the Office add-in WebView. Document text is read through Office.js and processed client-side. The app has no backend API, no telemetry, and no analytics. Local persistence, when enabled, uses local browser/WebView storage on the client.
+The parser runs in the Office add-in WebView. Document text is read through Office.js and processed client-side. The app has no backend API, no telemetry, and no analytics. Contract text and scan results are kept only in memory while the taskpane is open and are never written to browser/WebView storage. Local storage is used only for non-document preferences such as the inline highlighting mode.
 
 The inline mode depends on Microsoft Word Annotation APIs and therefore on Microsoft 365 support for those APIs. The annotations are temporary and are not persisted in the document.

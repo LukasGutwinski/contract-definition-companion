@@ -5,16 +5,17 @@
   xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides"
   xsi:type="TaskPaneApp">
   <Id>7f9bbabc-5f39-4743-9b46-5e0b7e9a9362</Id>
-  <Version>1.0.0.1</Version>
-  <ProviderName>Contract Definition Companion</ProviderName>
+  <Version>1.0.0.2</Version>
+  <ProviderName>GUT Ventures GmbH</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="Contract Definitions" />
-  <Description DefaultValue="Shows locally extracted contract definitions in Word." />
-  <IconUrl DefaultValue="https://localhost:3002/assets/icon-32.png?v=20260618-crisp" />
-  <HighResolutionIconUrl DefaultValue="https://localhost:3002/assets/icon-80.png?v=20260618-crisp" />
-  <SupportUrl DefaultValue="https://localhost:3002" />
+  <Description DefaultValue="Find, review, and navigate defined terms directly in Microsoft Word." />
+  <IconUrl DefaultValue="https://localhost:3002/assets/icon-32.png?v=20260724-bookmark" />
+  <HighResolutionIconUrl DefaultValue="https://localhost:3002/assets/icon-64.png?v=20260724-bookmark" />
+  <SupportUrl DefaultValue="https://gut-ventures.com/" />
   <AppDomains>
     <AppDomain>https://localhost:3002</AppDomain>
+    <AppDomain>https://gut-ventures.com</AppDomain>
   </AppDomains>
   <Hosts>
     <Host Name="Document" />
@@ -66,25 +67,25 @@
     </Hosts>
     <Resources>
       <bt:Images>
-        <bt:Image id="Icon.16x16" DefaultValue="https://localhost:3002/assets/icon-16.png?v=20260618-crisp" />
-        <bt:Image id="Icon.32x32" DefaultValue="https://localhost:3002/assets/icon-32.png?v=20260618-crisp" />
-        <bt:Image id="Icon.80x80" DefaultValue="https://localhost:3002/assets/icon-80.png?v=20260618-crisp" />
+        <bt:Image id="Icon.16x16" DefaultValue="https://localhost:3002/assets/icon-16.png?v=20260724-bookmark" />
+        <bt:Image id="Icon.32x32" DefaultValue="https://localhost:3002/assets/icon-32.png?v=20260724-bookmark" />
+        <bt:Image id="Icon.80x80" DefaultValue="https://localhost:3002/assets/icon-80.png?v=20260724-bookmark" />
       </bt:Images>
       <bt:Urls>
         <bt:Url id="Taskpane.Url" DefaultValue="https://localhost:3002/index.html" />
-        <bt:Url id="GetStarted.LearnMoreUrl" DefaultValue="https://localhost:3002" />
+        <bt:Url id="GetStarted.LearnMoreUrl" DefaultValue="https://gut-ventures.com/" />
       </bt:Urls>
       <bt:ShortStrings>
         <bt:String id="GetStarted.Title" DefaultValue="Contract Definitions" />
         <bt:String id="Ribbon.GroupLabel" DefaultValue="Definitions" />
         <bt:String id="Ribbon.ButtonLabel" DefaultValue="Definitions" />
-        <bt:String id="Annotation.Branding" DefaultValue="Definitions" />
+        <bt:String id="Annotation.Branding" DefaultValue="Contract Definitions" />
         <bt:String id="Annotation.Title" DefaultValue="Defined term" />
-        <bt:String id="Annotation.Subtitle" DefaultValue="Open the task pane for the full definition." />
+        <bt:String id="Annotation.Subtitle" DefaultValue="Open the task pane to read the full definition." />
       </bt:ShortStrings>
       <bt:LongStrings>
-        <bt:String id="GetStarted.Description" DefaultValue="Scan this contract locally and show detected definitions without sending contract text to a server." />
-        <bt:String id="Ribbon.ButtonDescription" DefaultValue="Open the local definition companion task pane." />
+        <bt:String id="GetStarted.Description" DefaultValue="Find and navigate defined terms locally without uploading contract text." />
+        <bt:String id="Ribbon.ButtonDescription" DefaultValue="Open Contract Definitions for the current document." />
       </bt:LongStrings>
     </Resources>
   </VersionOverrides>

@@ -15,7 +15,7 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "types": ["office-js-preview", "vitest/globals"]
+    "types": ["office-js-preview", "vite/client", "vitest/globals"]
   },
   "include": ["src"]
 }
