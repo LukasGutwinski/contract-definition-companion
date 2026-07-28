@@ -4,6 +4,8 @@ export interface DocumentParagraph {
   id: string;
   index: number;
   text: string;
+  outlineLevel?: number;
+  style?: string;
 }
 
 export interface DefinitionEntry {

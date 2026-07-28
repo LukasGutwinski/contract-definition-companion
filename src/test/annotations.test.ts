@@ -8,6 +8,11 @@ interface AnnotationHarness {
   sync: ReturnType<typeof vi.fn>;
 }
 
+interface AnnotationHarnessOptions {
+  failOccurrenceIds?: Set<string>;
+  supportsWordApi17?: boolean;
+}
+
 const definitions: DefinitionEntry[] = [
   {
     id: "definition-a",
@@ -70,6 +75,21 @@ describe("inline annotations", () => {
     annotations = await import("../office/annotations");
   });
 
+  it("uses non-persistent WordApi 1.7 critiques without formatting or popup options", async () => {
+    const count = await annotations.applyInlineAnnotations(
+      definitions,
+      occurrences,
+      vi.fn(),
+    );
+
+    expect(count).toBe(2);
+    const insertedCritiques = harness.insertAnnotations.mock.calls.flatMap(
+      ([annotationSet]) => annotationSet.critiques as Word.Critique[],
+    );
+    expect(insertedCritiques).toHaveLength(2);
+    expect(insertedCritiques.every((critique) => critique.popupOptions === undefined)).toBe(true);
+  });
+
   it("reuses the selected annotation and removes the others in one Word roundtrip", async () => {
     await annotations.applyInlineAnnotations(definitions, occurrences, vi.fn());
 
@@ -116,7 +136,7 @@ describe("inline annotations", () => {
     expect(harness.sync).toHaveBeenCalledTimes(1);
   });
 
-  it("does not call Word again when the requested highlights are already active", async () => {
+  it("does not call Word again when the requested annotations are already active", async () => {
     await annotations.applyInlineAnnotations(
       [definitions[0]],
       [occurrences[0]],
@@ -138,23 +158,82 @@ describe("inline annotations", () => {
     expect(harness.run).not.toHaveBeenCalled();
     expect(harness.sync).not.toHaveBeenCalled();
   });
+
+  it("keeps valid annotations when Word rejects an individual occurrence", async () => {
+    vi.resetModules();
+    harness = installWordHarness({
+      failOccurrenceIds: new Set(["occurrence-a"]),
+    });
+    annotations = await import("../office/annotations");
+
+    const count = await annotations.applyInlineAnnotations(
+      definitions,
+      occurrences,
+      vi.fn(),
+    );
+
+    expect(count).toBe(1);
+    expect(
+      harness.insertAnnotations.mock.calls.some(
+        ([annotationSet]) =>
+          annotationSet.critiques.length === 1 &&
+          annotationSet.critiques[0].start === occurrences[1].start,
+      ),
+    ).toBe(true);
+  });
+
+  it("reports annotation unavailability without falling back to document formatting", async () => {
+    vi.resetModules();
+    harness = installWordHarness({
+      failOccurrenceIds: new Set(occurrences.map((occurrence) => occurrence.id)),
+    });
+    annotations = await import("../office/annotations");
+
+    await expect(
+      annotations.applyInlineAnnotations(definitions, occurrences, vi.fn()),
+    ).rejects.toThrow("Microsoft 365 subscription");
+  });
 });
 
-function installWordHarness(): AnnotationHarness {
+function installWordHarness(
+  options: AnnotationHarnessOptions = {},
+): AnnotationHarness {
   let nextAnnotationId = 1;
   const deletedAnnotationIds: string[] = [];
   const sync = vi.fn(async () => undefined);
+  const occurrenceIdByCoordinates = new Map(
+    occurrences.map((occurrence) => [
+      `${occurrence.paragraphId}:${occurrence.start}:${occurrence.length}`,
+      occurrence.id,
+    ]),
+  );
+  let activeParagraphId = "";
   const insertAnnotations = vi.fn(
-    ({ critiques }: { critiques: Word.Critique[] }) => ({
-      value: critiques.map(() => `annotation-${nextAnnotationId++}`),
-    }),
+    ({ critiques }: { critiques: Word.Critique[] }) => {
+      const rejected = critiques.some((critique) => {
+        const occurrenceId = occurrenceIdByCoordinates.get(
+          `${activeParagraphId}:${critique.start}:${critique.length}`,
+        );
+        return Boolean(occurrenceId && options.failOccurrenceIds?.has(occurrenceId));
+      });
+      if (rejected) {
+        throw Object.assign(new Error("Annotation insertion failed"), {
+          code: "GeneralException",
+        });
+      }
+      return {
+        value: critiques.map(() => `annotation-${nextAnnotationId++}`),
+      };
+    },
   );
 
   let context: {
     document: {
       getAnnotationById: (id: string) => { delete: () => void };
-      getParagraphByUniqueLocalId: () => {
-        insertAnnotations: typeof insertAnnotations;
+      getParagraphByUniqueLocalId: (paragraphId: string) => {
+        insertAnnotations: (annotationSet: {
+          critiques: Word.Critique[];
+        }) => { value: string[] };
       };
       onAnnotationClicked: {
         add: (handler: (args: { id: string }) => Promise<void>) => {
@@ -179,7 +258,12 @@ function installWordHarness(): AnnotationHarness {
           deletedAnnotationIds.push(id);
         },
       }),
-      getParagraphByUniqueLocalId: () => ({ insertAnnotations }),
+      getParagraphByUniqueLocalId: (paragraphId) => ({
+        insertAnnotations: (annotationSet) => {
+          activeParagraphId = paragraphId;
+          return insertAnnotations(annotationSet);
+        },
+      }),
       onAnnotationClicked: {
         add: () => ({ context, remove: vi.fn() }),
       },
@@ -204,7 +288,8 @@ function installWordHarness(): AnnotationHarness {
     Office: {
       context: {
         requirements: {
-          isSetSupported: () => true,
+          isSetSupported: (_setName: string, version: string) =>
+            version === "1.7" && options.supportsWordApi17 !== false,
         },
       },
     },

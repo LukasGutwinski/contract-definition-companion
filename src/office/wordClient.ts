@@ -33,7 +33,7 @@ export async function waitForOffice(): Promise<OfficeEnvironment> {
 
 export function supportsAnnotations(): boolean {
   return Boolean(
-    window.Office?.context?.requirements?.isSetSupported?.("WordApi", "1.8") &&
+    window.Office?.context?.requirements?.isSetSupported?.("WordApi", "1.7") &&
       "Word" in window &&
       window.Word,
   );
@@ -44,13 +44,15 @@ export async function readDocumentParagraphs(): Promise<DocumentParagraph[]> {
 
   return Word.run(async (context) => {
     const paragraphs = context.document.body.paragraphs;
-    paragraphs.load("items/text,items/uniqueLocalId");
+    paragraphs.load("items/text,items/uniqueLocalId,items/outlineLevel,items/style");
     await context.sync();
 
     return paragraphs.items.map((paragraph, index) => ({
       id: getParagraphId(paragraph, index),
       index,
       text: paragraph.text ?? "",
+      outlineLevel: paragraph.outlineLevel,
+      style: paragraph.style,
     }));
   });
 }

@@ -19,7 +19,11 @@ import {
   ShieldCheck,
   X,
 } from "lucide-react";
-import { applyInlineAnnotations, clearInlineAnnotations } from "../office/annotations";
+import {
+  AnnotationUnavailableError,
+  applyInlineAnnotations,
+  clearInlineAnnotations,
+} from "../office/annotations";
 import {
   onSelectionChanged,
   readDocumentParagraphs,
@@ -280,11 +284,11 @@ export function App() {
           setStatusMessage(
             `${formatDefinitionCount(result.definitions.length)} · ${formatHighlightCount(count)}`,
           );
-        } catch {
+        } catch (error) {
           setSettings((current) => ({ ...current, inlineMode: "off" }));
           setStatusTone("warning");
           setStatusMessage(
-            `${formatDefinitionCount(result.definitions.length)} · Highlights unavailable`,
+            `${formatDefinitionCount(result.definitions.length)} · ${formatAnnotationError(error)}`,
           );
         }
       } else {
@@ -321,9 +325,9 @@ export function App() {
       setInlineCount(count);
       setStatusTone("success");
       setStatusMessage(`${formatHighlightCount(count)} for ${selectedDefinition.term}`);
-    } catch {
+    } catch (error) {
       setStatusTone("warning");
-      setStatusMessage("Highlights are unavailable in this version of Word");
+      setStatusMessage(formatAnnotationError(error));
     } finally {
       setIsHighlighting(false);
     }
@@ -342,9 +346,9 @@ export function App() {
       setStatusMessage(
         `${formatDefinitionCount(scan.definitions.length)} · ${formatHighlightCount(count)}`,
       );
-    } catch {
+    } catch (error) {
       setStatusTone("warning");
-      setStatusMessage("Highlights are unavailable in this version of Word");
+      setStatusMessage(formatAnnotationError(error));
     } finally {
       setIsHighlighting(false);
     }
@@ -359,7 +363,9 @@ export function App() {
       setInlineCount(0);
       setStatusTone("success");
       setStatusMessage(
-        scan ? `${formatDefinitionCount(scan.definitions.length)} · Highlights removed` : "Highlights removed",
+        scan
+          ? `${formatDefinitionCount(scan.definitions.length)} · Annotations removed`
+          : "Annotations removed",
       );
     } finally {
       setIsHighlighting(false);
@@ -552,7 +558,7 @@ export function App() {
               className={`app-action-button highlight-action${highlightsActive ? " active" : ""}`}
               type="button"
               aria-pressed={highlightsActive}
-              title={highlightsActive ? "Remove highlights" : "Highlight all defined terms"}
+              title={highlightsActive ? "Remove annotations" : "Annotate all defined terms"}
               disabled={isHighlighting}
               onClick={() =>
                 void (highlightsActive
@@ -561,7 +567,7 @@ export function App() {
               }
             >
               <Highlighter aria-hidden="true" size={15} />
-              <span>{highlightsActive ? "Remove highlights" : "Highlight all defined terms"}</span>
+              <span>{highlightsActive ? "Remove annotations" : "Annotate all defined terms"}</span>
             </button>
           ) : null}
         </section>
@@ -999,7 +1005,7 @@ function DefinitionDetails({
             ) : (
               <Highlighter aria-hidden="true" size={16} />
             )}
-            Highlight this term
+            Annotate this term
           </button>
         ) : null}
       </div>
@@ -1159,7 +1165,14 @@ function formatUseCount(count: number) {
 }
 
 function formatHighlightCount(count: number) {
-  return `${count} ${count === 1 ? "highlight" : "highlights"} active`;
+  return `${count} ${count === 1 ? "annotation" : "annotations"} active`;
+}
+
+function formatAnnotationError(error: unknown) {
+  if (error instanceof AnnotationUnavailableError) {
+    return error.message;
+  }
+  return "Word couldn't display annotations. Try again.";
 }
 
 function getOccurrenceIndexInParagraph(occurrence: Occurrence, activeOccurrences: Occurrence[]): number {
