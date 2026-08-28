@@ -43,7 +43,7 @@ The add-in requests `ReadWriteDocument` because it must read paragraph text, sel
 - No contract text, scan result, document identifier, user identifier, or usage event is sent to GUT Ventures.
 - No telemetry, advertising, cookies, or application analytics are used.
 - Local storage contains only non-document preferences such as annotation mode and a settings version.
-- The production Content Security Policy restricts network connections to the add-in's own origin. Office.js is loaded from `https://appsforoffice.microsoft.com/lib/1/hosted/office.js` as required by Microsoft.
+- The production Content Security Policy uses `connect-src 'none'` to block application network connections, including connections to the add-in's own origin. Office.js is loaded as a script from `https://appsforoffice.microsoft.com/lib/1/hosted/office.js` as required by Microsoft.
 
 ## Support
 

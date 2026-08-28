@@ -19,6 +19,11 @@ const officeHttps =
 
 export default defineConfig({
   plugins: [react(), ...(httpsEnabled && !officeHttps ? [basicSsl()] : [])],
+  build: {
+    // The app does not need Vite's fetch-based modulepreload polyfill. Keeping
+    // it out of the bundle makes the no-network application boundary explicit.
+    modulePreload: { polyfill: false },
+  },
   server: {
     https: officeHttps ?? (httpsEnabled ? true : undefined),
     port: 3002,

@@ -47,6 +47,8 @@ Contract Definitions has no application server. Document text is read through Of
 - are not written to browser or WebView storage.
 
 Local storage is used only for non-document preferences, such as the inline-annotation mode. The add-in loads Office.js from Microsoft's official CDN, as required for Office add-ins.
+The production Content Security Policy sets `connect-src 'none'`, so the WebView
+blocks application network connections such as Fetch, XHR, WebSockets, and beacons.
 
 ## Requirements
 

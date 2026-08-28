@@ -206,13 +206,8 @@ async function insertAnnotationGroupsWithIsolation(
     return;
   }
 
-  console.warn(
-    "Word rejected one non-persistent annotation; the remaining annotations stay active.",
-    {
-      occurrence: group.occurrences[0],
-      error: result.error,
-    },
-  );
+  // A single rejected annotation is non-fatal. Do not log the occurrence or the
+  // Office error because either can contain text from the open document.
 }
 
 async function tryInsertAnnotationBatch(
