@@ -1,11 +1,11 @@
 .page {
-  --paper: #f7f6f1;
+  --paper: #f5f7fb;
   --white: #ffffff;
-  --ink: #171918;
-  --muted: #626762;
-  --line: #d8d8d0;
-  --orange: #ef5b23;
-  --teal: #153f3c;
+  --ink: #020a2f;
+  --muted: #586078;
+  --line: #d5d9e4;
+  --orange: #47d3f2;
+  --teal: #020a2f;
   min-height: 100vh;
   background: var(--paper);
   color: var(--ink);
@@ -54,7 +54,7 @@
   align-items: center;
   justify-content: center;
   border: 1px solid var(--ink);
-  color: #145cc7;
+  color: #0b5d78;
 }
 
 .backLink {
@@ -172,7 +172,7 @@
   grid-template-columns: minmax(180px, 0.8fr) minmax(0, 1.2fr);
   gap: 30px;
   padding: 15px 0;
-  border-top: 1px solid #ecece7;
+  border-top: 1px solid #e9ebf2;
 }
 
 .legalDetails dt {
@@ -190,6 +190,63 @@
   max-width: 590px;
   margin-top: 24px;
   color: var(--muted);
+}
+
+.bodyCopy {
+  border-top: 1px solid var(--ink);
+}
+
+.bodyCopy > section {
+  padding: 34px 0 42px;
+  border-bottom: 1px solid var(--line);
+}
+
+.bodyCopy h2 {
+  font-family: var(--font-serif);
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.bodyCopy h3 {
+  margin-top: 24px;
+  font-size: 16px;
+}
+
+.bodyCopy p,
+.bodyCopy li {
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.72;
+}
+
+.bodyCopy p,
+.bodyCopy ul,
+.bodyCopy ol {
+  margin-top: 18px;
+}
+
+.bodyCopy ul,
+.bodyCopy ol {
+  padding-left: 22px;
+}
+
+.bodyCopy li + li {
+  margin-top: 8px;
+}
+
+.bodyCopy a,
+.inlineLink {
+  color: var(--teal);
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.notice {
+  padding: 16px 18px;
+  border-left: 3px solid var(--orange);
+  background: #eef1f7;
 }
 
 .footer {

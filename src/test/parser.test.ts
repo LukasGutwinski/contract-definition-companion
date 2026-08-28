@@ -532,4 +532,140 @@ describe("contract definition parser", () => {
       "including the phrase “to the Company’s knowledge”, the actual knowledge of the named officers.",
     );
   });
+
+  it("recognizes common SEC purchase-agreement headings and reference definitions", () => {
+    const result = scanDocument(
+      paragraphs([
+        "ARTICLE I. DEFINITIONS AND TERMS",
+        "Section 1.1 Certain Definitions.",
+        "(a)“Accounting Expert” has the meaning set forth in Section 2.3(c).",
+        "(b) “Acquired Assets” is defined in Section 2.1(a).",
+        "(c) “Affiliate” means any Person controlling, controlled by or under common control with another Person.",
+        "ARTICLE II. SALE AND PURCHASE",
+        "The consideration paid at Closing (the “Purchase Price”) means the amount specified in this Article.",
+      ]),
+      { language: "en" },
+    );
+
+    expect(result.definitions.map((definition) => definition.term)).toEqual([
+      "Accounting Expert",
+      "Acquired Assets",
+      "Affiliate",
+    ]);
+    expect(
+      result.definitions.find((definition) => definition.term === "Acquired Assets")
+        ?.definition,
+    ).toBe("Section 2.1(a).");
+  });
+
+  it("recognizes compact UK-style entries under a plural interpretation heading", () => {
+    const result = scanDocument(
+      paragraphs([
+        "1.DEFINITIONS AND INTERPRETATIONS",
+        "a.“Business Day” a day other than a Saturday, Sunday or public holiday;",
+        "b.“Fully Diluted Basis” means the share capital calculated after conversion of all convertible securities;",
+        "c.“Shares” shall mean all issued shares in the Company.",
+        "2.SALE AND PURCHASE",
+        "The Buyer shall acquire the Shares on the next Business Day.",
+      ]),
+      { language: "en" },
+    );
+
+    expect(result.definitions.map((definition) => definition.term)).toEqual([
+      "Business Day",
+      "Fully Diluted Basis",
+      "Shares",
+    ]);
+  });
+
+  it("keeps ordinary enumerated subclauses attached to a purchase-agreement definition", () => {
+    const result = scanDocument(
+      paragraphs([
+        "ARTICLE 10. DEFINITIONS",
+        "(a) “Acquired Assets” means all of the following:",
+        "(1) the assigned contracts;",
+        "(2) the inventory; and",
+        "(3) the business records.",
+        "(b) “Excluded Assets” means the assets expressly retained by the Seller.",
+        "ARTICLE 11. CLOSING",
+      ]),
+      { language: "en" },
+    );
+
+    expect(result.definitions.map((definition) => definition.term)).toEqual([
+      "Acquired Assets",
+      "Excluded Assets",
+    ]);
+    expect(
+      result.definitions.find((definition) => definition.term === "Acquired Assets"),
+    ).toMatchObject({
+      definition:
+        "all of the following: (1) the assigned contracts; (2) the inventory; and (3) the business records.",
+      definitionParagraphIndexes: [1, 2, 3, 4],
+    });
+  });
+
+  it("does not mistake a defined-term index table for substantive definitions", () => {
+    const result = scanDocument(
+      paragraphs([
+        "Defined Terms",
+        "Term\tCross Reference",
+        "Accounting Firm\tSection 2.3(c)",
+        "Business Day\tmeans a day other than a Saturday or Sunday.",
+        "2 Completion",
+      ]),
+      { language: "en" },
+    );
+
+    expect(result.definitions.map((definition) => definition.term)).toEqual([
+      "Business Day",
+    ]);
+  });
+
+  it("extracts comma-separated quoted terms with one shared definition", () => {
+    const result = scanDocument(
+      paragraphs([
+        "2 Definitions",
+        "“Controller”, “Processor”, “Personal Data”, “Data Subject”, “Process/Processed/Processing” shall have the meaning as defined in the Data Protection Legislation.",
+        "“Data Protection Legislation” means applicable privacy and data protection laws.",
+        "3 Data processing",
+        "The Processor may Process Personal Data that is Processed during Processing.",
+      ]),
+      { language: "en" },
+    );
+
+    expect(result.definitions.map((definition) => definition.term)).toEqual([
+      "Controller",
+      "Data Protection Legislation",
+      "Data Subject",
+      "Personal Data",
+      "Process/Processed/Processing",
+      "Processor",
+    ]);
+    expect(
+      result.definitions.find((definition) => definition.term === "Processor")
+        ?.definition,
+    ).toBe("the Data Protection Legislation.");
+    expect(result.occurrences.map((occurrence) => occurrence.contextHit)).toEqual([
+      "Data Protection Legislation",
+      "Processor",
+      "Process",
+      "Personal Data",
+      "Processed",
+      "Processing",
+    ]);
+  });
+
+  it("does not treat a quoted list without a definition operator as definitions", () => {
+    const result = scanDocument(
+      paragraphs([
+        "Definitions",
+        "“High”, “Medium” and “Low” are illustrative labels only.",
+        "2 Service Levels",
+      ]),
+      { language: "en" },
+    );
+
+    expect(result.definitions).toEqual([]);
+  });
 });

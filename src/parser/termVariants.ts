@@ -6,9 +6,10 @@ export function getTermSearchVariants(definition: DefinitionTerm): string[] {
   const term = definition.term.trim();
   if (!term) return [];
 
-  const variants = new Set<string>([term]);
+  const explicitAliases = getExplicitSlashAliases(term);
+  const variants = new Set<string>([term, ...explicitAliases]);
 
-  if (definition.language === "en") {
+  if (definition.language === "en" && explicitAliases.length === 0) {
     const plural = pluralizeFinalWord(term);
     if (plural) variants.add(plural);
 
@@ -20,6 +21,22 @@ export function getTermSearchVariants(definition: DefinitionTerm): string[] {
   }
 
   return [...variants].sort((a, b) => b.length - a.length || a.localeCompare(b));
+}
+
+function getExplicitSlashAliases(term: string): string[] {
+  if (!term.includes("/")) return [];
+
+  const aliases = term.split(/\s*\/\s*/).map((alias) => alias.trim());
+  if (aliases.length < 2 || aliases.length > 4) return [];
+  if (
+    !aliases.every((alias) =>
+      /^[A-Z0-9][\p{L}\p{N}'’.-]{1,39}$/u.test(alias),
+    )
+  ) {
+    return [];
+  }
+
+  return aliases;
 }
 
 export function getLongestTermVariantLength(definition: DefinitionTerm): number {

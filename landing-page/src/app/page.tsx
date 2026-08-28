@@ -15,14 +15,15 @@ import {
   Search,
   ShieldCheck,
 } from "lucide-react";
-import { ColorThemeSwitcher } from "./ColorThemeSwitcher";
 import { GutVenturesLogo } from "./GutVenturesLogo";
+import { WorkflowVideo } from "./WorkflowVideo";
 import styles from "./page.module.css";
 
 const wordStoreUrl =
   process.env.NEXT_PUBLIC_WORD_STORE_URL ?? "https://appsource.microsoft.com/";
 const githubUrl =
-  process.env.NEXT_PUBLIC_GITHUB_URL ?? "https://github.com/lukasgutwinski";
+  process.env.NEXT_PUBLIC_GITHUB_URL ??
+  "https://github.com/LukasGutwinski/contract-definition-companion";
 const gutVenturesUrl =
   process.env.NEXT_PUBLIC_GUT_VENTURES_URL ?? "https://gut-ventures.com/";
 const bookingUrl =
@@ -100,8 +101,6 @@ function StoreButton({ compact = false }: { compact?: boolean }) {
 export default function Home() {
   return (
     <main className={styles.page}>
-      <ColorThemeSwitcher />
-
       <header className={styles.header}>
         <div className={styles.headerInner}>
           <div className={styles.brandGroup}>
@@ -148,14 +147,15 @@ export default function Home() {
       <section className={styles.hero} id="top">
         <div className={styles.heroInner}>
           <div className={styles.heroCopy}>
-            <p className={styles.eyebrow}>FREE · OPEN SOURCE · LOCAL ONLY</p>
+            <p className={styles.eyebrow}>MICROSOFT WORD ADD-IN</p>
             <h1>
               <span>Read the clause.</span>
               <span>Keep the context.</span>
             </h1>
             <p className={styles.heroDescription}>
-              Every defined term, exactly where you need it. Stay in the clause
-              while Contract Definitions keeps the meaning in view.
+              Turn defined terms into a searchable index inside Microsoft Word.
+              Open a definition and move through its uses without leaving the
+              clause you are reviewing.
             </p>
             <div className={styles.heroActions}>
               <StoreButton />
@@ -249,6 +249,19 @@ export default function Home() {
               );
             })}
           </div>
+
+          <figure className={styles.workflowDemo}>
+            <figcaption className={styles.workflowDemoCaption}>
+              <div>
+                <span>SEE IT IN WORD</span>
+                <strong>From a defined term to every use.</strong>
+              </div>
+              <span>16-second walkthrough</span>
+            </figcaption>
+            <div className={styles.workflowDemoFrame}>
+              <WorkflowVideo className={styles.workflowDemoVideo} />
+            </div>
+          </figure>
         </div>
       </section>
 
@@ -330,6 +343,24 @@ if (definition) {
 // Contract text stays in the Word client.`}</code>
             </pre>
           </div>
+
+          <aside className={styles.selfHosting}>
+            <div>
+              <p className={styles.eyebrow}>SELF-HOSTING</p>
+              <h3>Run it on infrastructure you control.</h3>
+            </div>
+            <div className={styles.selfHostingCopy}>
+              <p>
+                The static build can be hosted on any HTTPS origin and deployed
+                centrally through Microsoft 365. No application backend,
+                database, account system, or API key is required.
+              </p>
+              <a href={bookingUrl} target="_blank" rel="noreferrer">
+                Discuss a team rollout
+                <ArrowUpRight aria-hidden="true" size={16} />
+              </a>
+            </div>
+          </aside>
         </div>
       </section>
 
@@ -406,6 +437,14 @@ if (definition) {
                 and the Word integration.
               </p>
             </details>
+            <details>
+              <summary>Which contracts are supported?</summary>
+              <p>
+                Contract Definitions is designed for English-language contracts
+                and common definitions-section structures. Unusual or ambiguous
+                drafting may not be detected correctly.
+              </p>
+            </details>
           </div>
         </div>
       </section>
@@ -433,6 +472,8 @@ if (definition) {
           .
         </p>
         <div className={styles.footerLinks}>
+          <a href="/support/">Support</a>
+          <a href="/privacy/">Privacy</a>
           <a href="/imprint/">Imprint</a>
           <a href={githubUrl} target="_blank" rel="noreferrer">
             GitHub <ArrowUpRight aria-hidden="true" size={14} />

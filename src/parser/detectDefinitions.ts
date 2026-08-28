@@ -33,6 +33,8 @@ interface HeadingInfo {
 }
 
 const EN_VERBS = [
+  "shall have the meaning as defined in",
+  "shall have the meaning as set forth",
   "shall have the meaning assigned to it",
   "shall have the meaning ascribed to it",
   "shall have the meaning specified",
@@ -43,6 +45,8 @@ const EN_VERBS = [
   "shall have the meaning",
   "has the meaning assigned to it",
   "has the meaning ascribed to it",
+  "has the meaning as defined in",
+  "has the meaning as set forth",
   "has the meaning specified",
   "has the meaning set forth",
   "has the meaning set out",
@@ -53,6 +57,9 @@ const EN_VERBS = [
   "means and includes",
   "shall mean",
   "is given the meaning",
+  "is defined elsewhere in",
+  "is defined under",
+  "is defined in",
   "is defined as",
   "bears the meaning",
   "does not include",
@@ -319,7 +326,7 @@ function matchEnglishLeadingSectionDefinition(text: string): Candidate[] {
   const firstToken = readQuotedToken(text, 0);
   if (!firstToken || firstToken.start !== 0) return [];
 
-  const sequence = readQuotedSequence(text, 0);
+  const sequence = readQuotedSequence(text, 0, true);
   if (!sequence) return [];
 
   const remainder = text.slice(sequence.end);
@@ -364,7 +371,7 @@ function matchEnglishQuotedDefinitions(text: string): Candidate[] {
   for (const token of tokens) {
     if (token.start < consumedUntil) continue;
 
-    const sequence = readQuotedSequence(stripped, token.start);
+    const sequence = readQuotedSequence(stripped, token.start, true);
     if (!sequence) continue;
     consumedUntil = sequence.end;
 
@@ -524,6 +531,14 @@ function matchTableDefinition(
   const definition = definitionParts.join(" ");
   const term = cleanTerm(rawTerm);
   if (!isPlausibleTerm(term) || definition.length < 10) return undefined;
+  if (/^(?:term|defined terms?|words? or expressions?)$/i.test(term)) return undefined;
+  if (
+    /^(?:cross[ -]?reference|location|section|clause|article|schedule|annex|appendix|exhibit|recitals?|preamble)\b/i.test(
+      definition,
+    )
+  ) {
+    return undefined;
+  }
 
   const lowerDefinition = definition.toLocaleLowerCase();
   const detectedLanguage =
@@ -620,21 +635,24 @@ function isQuotedGlossaryShape(text: string): boolean {
 }
 
 function isDefinitionHeading(text: string): boolean {
-  const value = stripListPrefix(normalizeWhitespace(text))
-    .replace(/[\s:–—-]+$/g, "")
+  const value = stripStructuralHeadingPrefix(text)
+    .replace(/[\s.:;–—-]+$/g, "")
     .toLocaleLowerCase();
 
   return (
-    /^(?:(?:general|additional)\s+)?definitions?$/.test(value) ||
-    /^defined terms?$/.test(value) ||
+    /^(?:(?:general|additional|certain|specific)\s+)?definitions?$/.test(value) ||
+    /^(?:(?:general|additional|certain|specific|other)\s+)?defined terms?$/.test(value) ||
     /^(?:definitions?|defined terms?)\s+(?:used|applicable)\s+in\s+(?:this|the)\s+(?:agreement|document|instrument)$/.test(
       value,
     ) ||
     /^interpretation$/.test(value) ||
-    /^(?:definitions?\s+(?:and|&)\s+(?:rules?\s+of\s+)?(?:interpretation|construction))$/.test(
+    /^(?:(?:general|additional|certain|specific)\s+)?(?:definitions?|defined terms?)\s*(?:,|;|and|&)\s*(?:(?:other\s+)?terms?|(?:rules?\s+of\s+)?(?:interpretations?|construction))$/.test(
       value,
     ) ||
-    /^(?:(?:interpretation|construction)\s+(?:and|&)\s+definitions?)$/.test(value) ||
+    /^(?:terms?|interpretations?|construction)\s*(?:,|;|and|&)\s*(?:definitions?|defined terms?)$/.test(
+      value,
+    ) ||
+    /^definitions?\s*,\s*interpretations?\s*(?:,|and|&)\s*construction$/.test(value) ||
     /^(?:definitionen|begriffsbestimmungen|auslegung|definierte begriffe)$/.test(value)
   );
 }
@@ -653,7 +671,7 @@ function getHeadingInfo(
   }
 
   const numbered = value.match(
-    /^(?:\((\d+(?:\.\d+)*)\)|(\d+(?:\.\d+)*)(?:[.)])?)\s+(.+)$/,
+    /^(?:\((\d+(?:\.\d+)*)\)\s*|(\d+(?:\.\d+)*)(?:(?:[.)])\s*|\s+))(.+)$/,
   );
   if (numbered) {
     const number = numbered[1] ?? numbered[2];
@@ -662,10 +680,12 @@ function getHeadingInfo(
     return { level: number.split(".").length, title };
   }
 
-  const named = value.match(/^(?:ARTICLE|CLAUSE|SECTION)\s+(?:\d+|[IVXLCDM]+)\b\s*(.*)$/i);
+  const named = value.match(
+    /^(?:ARTICLE|CLAUSE|SECTION)\s+(?:\d+(?:\.\d+)*|[IVXLCDM]+)(?:\s*[.):–—-])?\s*(.*)$/i,
+  );
   if (named) {
-    const title = named[1] || value;
-    if (named[1] && !isHeadingTitle(named[1])) return undefined;
+    const title = named[1].replace(/[\s.]+$/g, "") || value;
+    if (named[1] && !isHeadingTitle(title)) return undefined;
     return { level: 1, title };
   }
 
@@ -695,10 +715,11 @@ function shouldContinueDefinition(
   style?: string,
 ): boolean {
   if (!nextText || nextText.length <= 2) return false;
+  const currentText = normalizeWhitespace(currentChunks.join(" "));
+  if (isEnumeratedDefinitionContinuation(currentText, nextText)) return true;
   if (getHeadingInfo(nextText, outlineLevel, style)) return false;
   if (/^(whereas|recitals|schedule|annex|anlage|präambel)\b/i.test(nextText)) return false;
 
-  const currentText = normalizeWhitespace(currentChunks.join(" "));
   if (!currentText) return true;
   if (/[,:(\[{/–—-]\s*$/.test(currentText)) return true;
 
@@ -837,6 +858,7 @@ function readQuotedToken(text: string, start: number): QuotedToken | undefined {
 function readQuotedSequence(
   text: string,
   start: number,
+  allowCommaSeparators = false,
 ): { tokens: QuotedToken[]; end: number } | undefined {
   const first = readQuotedToken(text, start);
   if (!first) return undefined;
@@ -844,8 +866,14 @@ function readQuotedSequence(
   const tokens = [first];
   let end = first.end;
 
-  while (tokens.length < 4) {
-    const separator = text.slice(end).match(/^\s*(?:\/|or|and)\s*/i);
+  while (tokens.length < 8) {
+    const separator = text
+      .slice(end)
+      .match(
+        allowCommaSeparators
+          ? /^\s*(?:\/|,(?:\s*(?:and|or))?|or|and)\s*/i
+          : /^\s*(?:\/|or|and)\s*/i,
+      );
     if (!separator) break;
 
     const next = readQuotedToken(text, end + separator[0].length);
@@ -860,10 +888,42 @@ function readQuotedSequence(
 function stripListPrefix(text: string): string {
   return text
     .replace(
-      /^\s*(?:\(?[a-z]\)|\(?\d+(?:\.\d+)*(?:[.)])?|[ivxlcdm]+[.)])\s+/i,
+      /^\s*(?:section|clause)\s+\d+(?:\.\d+)*(?:[.)])?\s*(?=[“"„'«])/i,
+      "",
+    )
+    .replace(
+      /^\s*(?:\(?[a-z]\)|[a-z][.)]|\(?\d+(?:\.\d+)*(?:[.)])?|[ivxlcdm]+[.)])(?:\s+|(?=[“"„'«]))/i,
       "",
     )
     .trim();
+}
+
+function stripStructuralHeadingPrefix(text: string): string {
+  return normalizeWhitespace(text)
+    .replace(
+      /^(?:(?:article|clause|section)\s+(?:\d+(?:\.\d+)*|[ivxlcdm]+)|(?:schedule|annex|appendix|exhibit)\s+[a-z0-9]+(?:[-.][a-z0-9]+)*)(?:\s*[.):–—-])?\s*/i,
+      "",
+    )
+    .replace(
+      /^(?:\((?:\d+(?:\.\d+)*|[a-z]|[ivxlcdm]+)\)|(?:\d+(?:\.\d+)*|[ivxlcdm]+)[.)])\s*/i,
+      "",
+    )
+    .replace(/^\d+(?:\.\d+)*\s+(?=\S)/, "")
+    .trim();
+}
+
+function isEnumeratedDefinitionContinuation(
+  currentText: string,
+  nextText: string,
+): boolean {
+  const listWasIntroduced =
+    /:\s*$/.test(currentText) ||
+    /:\s*(?:\([a-z0-9ivxlcdm]+\)|[a-zivxlcdm][.)])\s*/i.test(currentText);
+  if (!listWasIntroduced) return false;
+
+  return /^\s*(?:\([a-z0-9ivxlcdm]+\)|[a-zivxlcdm][.)])(?:\s+|(?=[\p{L}\p{N}“"„'«]))/iu.test(
+    nextText,
+  );
 }
 
 function isPlausibleTerm(term: string): boolean {

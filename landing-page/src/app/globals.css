@@ -1,6 +1,6 @@
 :root {
-  --background: #f7f6f1;
-  --foreground: #171918;
+  --background: #f5f7fb;
+  --foreground: #020a2f;
   --font-serif: "Iowan Old Style", "Baskerville", "Times New Roman", serif;
 }
 
@@ -45,12 +45,12 @@ select {
 }
 
 ::selection {
-  background: var(--selection-background, #ef5b23);
-  color: #ffffff;
+  background: var(--selection-background, #47d3f2);
+  color: #020a2f;
 }
 
 :focus-visible {
-  outline: 3px solid var(--focus-color, #ef5b23);
+  outline: 3px solid var(--focus-color, #47d3f2);
   outline-offset: 3px;
 }
 

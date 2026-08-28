@@ -5,13 +5,13 @@
   xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides"
   xsi:type="TaskPaneApp">
   <Id>7f9bbabc-5f39-4743-9b46-5e0b7e9a9362</Id>
-  <Version>1.0.0.2</Version>
+  <Version>1.0.0.3</Version>
   <ProviderName>GUT Ventures GmbH</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="Contract Definitions" />
   <Description DefaultValue="Find, review, and navigate defined terms directly in Microsoft Word." />
-  <IconUrl DefaultValue="https://localhost:3002/assets/icon-32.png?v=20260724-bookmark" />
-  <HighResolutionIconUrl DefaultValue="https://localhost:3002/assets/icon-64.png?v=20260724-bookmark" />
+  <IconUrl DefaultValue="https://localhost:3002/assets/icon-bookmark-32.png" />
+  <HighResolutionIconUrl DefaultValue="https://localhost:3002/assets/icon-bookmark-64.png" />
   <SupportUrl DefaultValue="https://gut-ventures.com/" />
   <AppDomains>
     <AppDomain>https://localhost:3002</AppDomain>
@@ -20,6 +20,11 @@
   <Hosts>
     <Host Name="Document" />
   </Hosts>
+  <Requirements>
+    <Sets DefaultMinVersion="1.6">
+      <Set Name="WordApi" MinVersion="1.6" />
+    </Sets>
+  </Requirements>
   <DefaultSettings>
     <SourceLocation DefaultValue="https://localhost:3002/index.html" />
   </DefaultSettings>
@@ -67,9 +72,9 @@
     </Hosts>
     <Resources>
       <bt:Images>
-        <bt:Image id="Icon.16x16" DefaultValue="https://localhost:3002/assets/icon-16.png?v=20260724-bookmark" />
-        <bt:Image id="Icon.32x32" DefaultValue="https://localhost:3002/assets/icon-32.png?v=20260724-bookmark" />
-        <bt:Image id="Icon.80x80" DefaultValue="https://localhost:3002/assets/icon-80.png?v=20260724-bookmark" />
+        <bt:Image id="Icon.16x16" DefaultValue="https://localhost:3002/assets/icon-bookmark-16.png" />
+        <bt:Image id="Icon.32x32" DefaultValue="https://localhost:3002/assets/icon-bookmark-32.png" />
+        <bt:Image id="Icon.80x80" DefaultValue="https://localhost:3002/assets/icon-bookmark-80.png" />
       </bt:Images>
       <bt:Urls>
         <bt:Url id="Taskpane.Url" DefaultValue="https://localhost:3002/index.html" />

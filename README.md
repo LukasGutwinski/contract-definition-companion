@@ -1,10 +1,10 @@
-# Contract Definition Companion
+# Contract Definitions
 
 An open-source, local-first Microsoft Word add-in for finding, reviewing, and navigating defined terms in English contracts.
 
 **No document uploads, AI provider, API key, telemetry, analytics, or application backend.** The add-in reads the open document through Office.js and processes it inside the Word task pane.
 
-![Contract Definition Companion finds defined terms and navigates between their definitions and occurrences in Microsoft Word](docs/assets/contract-definition-companion-demo.gif)
+![Contract Definitions finds defined terms and navigates between their definitions and occurrences in Microsoft Word](docs/assets/contract-definition-companion-demo.gif)
 
 _Recorded in Microsoft Word using the repository's [entirely fictional demo SPA](demo/Contract-Definitions-Demo-SPA.docx)._
 
@@ -14,7 +14,7 @@ Long contracts such as share purchase agreements (SPAs), shareholders' agreement
 
 This makes contract review slower and makes it difficult to maintain an overview of which definitions are used throughout the document — and which may not be used at all.
 
-Contract Definition Companion turns the definitions in the open document into a searchable, navigable index inside Microsoft Word. It helps reviewers:
+Contract Definitions turns the definitions in the open document into a searchable, navigable index inside Microsoft Word. It helps reviewers:
 
 - read definitions without losing their place in the contract;
 - jump directly to a definition and through its detected occurrences;
@@ -38,7 +38,7 @@ _Review a definition, its usage count, and the current occurrence without leavin
 
 ## Privacy by Design
 
-Contract Definition Companion has no application server. Document text is read through Office.js and processed in the add-in WebView. Contract text and scan results:
+Contract Definitions has no application server. Document text is read through Office.js and processed in the add-in WebView. Contract text and scan results:
 
 - are not uploaded to GUT Ventures or another application backend;
 - are not sent to an AI provider;
@@ -105,7 +105,7 @@ The current Vite build uses root-relative asset URLs, so deploy it at the root o
 
 ## Organization-Wide Deployment
 
-Organizations can distribute Contract Definition Companion centrally instead of asking every user to sideload it. After hosting the production build over HTTPS and preparing a deployment-specific manifest, a Microsoft 365 administrator can upload the XML manifest through the Microsoft 365 Admin Center and assign the add-in to selected users, groups, or the entire organization.
+Organizations can distribute Contract Definitions centrally instead of asking every user to sideload it. After hosting the production build over HTTPS and preparing a deployment-specific manifest, a Microsoft 365 administrator can upload the XML manifest through the Microsoft 365 Admin Center and assign the add-in to selected users, groups, or the entire organization.
 
 Microsoft documents this process under [centralized deployment through Integrated Apps](https://learn.microsoft.com/en-us/microsoft-365/admin/manage/manage-deployment-of-add-ins). The exact Microsoft 365 requirements and available administration options depend on the organization's tenant configuration.
 
@@ -143,6 +143,6 @@ Issues and pull requests are welcome. Please include tests for parser changes an
 
 ## License
 
-Contract Definition Companion is available under the [MIT License](LICENSE).
+Contract Definitions is available under the [MIT License](LICENSE).
 
 Built and maintained by [GUT Ventures](https://gut-ventures.com/?utm_source=github&utm_medium=repository&utm_campaign=contract_definitions).
