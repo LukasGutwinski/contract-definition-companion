@@ -55,7 +55,8 @@ const GUT_VENTURES_URL =
   "https://gut-ventures.com/?utm_source=contract_definitions&utm_medium=word_addin";
 const CUSTOM_SOLUTIONS_URL =
   "https://gut-ventures.com/?utm_source=contract_definitions&utm_medium=word_addin&utm_campaign=custom_legal_tech";
-const GITHUB_URL = "https://github.com/LukasGutwinski";
+const GITHUB_URL =
+  "https://github.com/LukasGutwinski/contract-definition-companion";
 const FEEDBACK_URL =
   "mailto:lukas@gut-ventures.com?subject=Contract%20Definitions%20feedback";
 
