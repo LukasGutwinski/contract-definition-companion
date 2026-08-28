@@ -3,3 +3,6 @@ dist/
 .DS_Store
 *.log
 .vite/
+.tmp/
+public/assets/icon-variants/
+demo/~$*.docx
