@@ -2,6 +2,8 @@
 
 An open-source, local-first Microsoft Word add-in for finding, reviewing, and navigating defined terms in English contracts.
 
+[Add to Microsoft Word](https://marketplace.microsoft.com/en-us/product/WA200011925) · [Product website](https://contract-definitions.gut-ventures.com/) · [Privacy](https://contract-definitions.gut-ventures.com/privacy/) · [Support](https://contract-definitions.gut-ventures.com/support/)
+
 **No document uploads, AI provider, API key, telemetry, analytics, or application backend.** The add-in reads the open document through Office.js and processes it inside the Word task pane.
 
 ![Contract Definitions finds defined terms and navigates between their definitions and occurrences in Microsoft Word](docs/assets/contract-definition-companion-demo.gif)
@@ -57,6 +59,10 @@ blocks application network connections such as Fetch, XHR, WebSockets, and beaco
 - Node.js `>=20.19.0` for local development or building a self-hosted version.
 
 Inline annotations require a Microsoft 365 version of Word that supports the Word Annotation APIs. The definition list and navigation remain available when annotations are not supported.
+
+## Install from Microsoft Marketplace
+
+Install the current public release from [Microsoft Marketplace](https://marketplace.microsoft.com/en-us/product/WA200011925). The Marketplace manifest uses the stable production origin `https://app.contract-definitions.gut-ventures.com/`.
 
 ## Run Locally
 

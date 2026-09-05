@@ -20,7 +20,8 @@ import { WorkflowVideo } from "./WorkflowVideo";
 import styles from "./page.module.css";
 
 const wordStoreUrl =
-  process.env.NEXT_PUBLIC_WORD_STORE_URL ?? "https://appsource.microsoft.com/";
+  process.env.NEXT_PUBLIC_WORD_STORE_URL ??
+  "https://marketplace.microsoft.com/en-us/product/WA200011925";
 const githubUrl =
   process.env.NEXT_PUBLIC_GITHUB_URL ??
   "https://github.com/LukasGutwinski/contract-definition-companion";

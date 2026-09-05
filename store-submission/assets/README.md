@@ -1,6 +1,6 @@
 # Marketplace image assets
 
-These files are prepared locally and have not been uploaded to Partner Center.
+These are the source and upload-ready image assets used for the live Microsoft Marketplace listing `WA200011925`.
 
 ## Store logos
 
@@ -11,7 +11,7 @@ Both use the same document-and-bookmark artwork as the add-in manifest icons. Ch
 
 ## Store screenshots
 
-All screenshots are 1280 × 720 PNG files cropped from the real Microsoft Word demo screenshots captured on 28 August 2026. The source screenshots are:
+The source screenshots are 1280 × 720 PNG files cropped from the real Microsoft Word demo screenshots captured on 28 August 2026. Partner Center currently requires 1366 × 768 PNG files, so upload-ready versions are stored in `upload/` and have been visually checked after scaling. The source screenshots are:
 
 - `/Users/lukasgutwinski/Desktop/Screenshot 2026-08-28 at 16.44.58.png`
 - `/Users/lukasgutwinski/Desktop/Screenshot 2026-08-28 at 16.45.10.png`
@@ -24,8 +24,14 @@ All screenshots are 1280 × 720 PNG files cropped from the real Microsoft Word d
 3. `03-occurrence-navigation.png`
    - Caption: Navigate occurrences and add temporary inline annotations—without uploading the document.
 
+Upload these files to Partner Center:
+
+1. `upload/01-searchable-definition-index-1366x768.png`
+2. `upload/02-definition-detail-1366x768.png`
+3. `upload/03-occurrence-navigation-1366x768.png`
+
 The unrelated Word ribbon area was cropped from the store candidates. The document and Contract Definitions task-pane content were not altered. The source document is fictional, is visibly marked as a demo, and contains no personal or confidential information.
 
 The animated demo in `docs/assets/contract-definition-companion-demo.gif` is suitable for the product website or repository, but it is not a Marketplace screenshot upload. Partner Center uses static PNG screenshots; an optional listing video must be linked from YouTube or Vimeo and needs a separate 1280 × 720 PNG thumbnail.
 
-Before upload, confirm that each image still matches the final submitted build and that the caption accurately describes the visible state.
+Before a future update, confirm that each image still matches the submitted build and that the caption accurately describes the visible state.

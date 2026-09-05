@@ -1,36 +1,43 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Contract Definitions product website
 
-## Getting Started
+This directory contains the public product, support, privacy, and imprint pages for Contract Definitions:
 
-First, run the development server:
+- `https://contract-definitions.gut-ventures.com/`
+- `https://contract-definitions.gut-ventures.com/support/`
+- `https://contract-definitions.gut-ventures.com/privacy/`
+- `https://contract-definitions.gut-ventures.com/imprint/`
+
+The site is a statically exported Next.js application hosted on Cloudflare Pages. It has no application backend, analytics, advertising, or contact-form processing.
+
+## Local development
+
+Use Node.js 22 or later:
 
 ```bash
+npm ci
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Verification
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run lint
+npm run build
+npm audit
+```
 
-## Learn More
+The static export is written to `out/`.
 
-To learn more about Next.js, take a look at the following resources:
+## Deployment
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+The Cloudflare Pages configuration is stored in `wrangler.jsonc`. Deploy the verified static export with:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm run deploy
+```
 
-## Deploy on Vercel
+The production Marketplace URL is the default in `src/app/page.tsx`. It can be overridden at build time with `NEXT_PUBLIC_WORD_STORE_URL` when testing a preview.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Before deploying a privacy-policy change, confirm that the published text still matches the add-in, Microsoft Marketplace, Cloudflare, and support-email data flows.

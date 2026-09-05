@@ -4,5 +4,10 @@ dist/
 *.log
 .vite/
 .tmp/
+.next/
+.wrangler/
+out/
+output/
+tmp/
 public/assets/icon-variants/
 demo/~$*.docx

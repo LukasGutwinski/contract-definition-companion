@@ -1,6 +1,8 @@
 # Microsoft Marketplace listing — English (United States)
 
-Status: Draft for review before entry in Partner Center.
+Status: Live in Microsoft Marketplace since 2 September 2026.
+
+Public listing: `https://marketplace.microsoft.com/en-us/product/WA200011925`
 
 ## Offer identity
 
@@ -30,7 +32,7 @@ Find defined terms and navigate every occurrence in Word—locally, without uplo
   <li>add temporary inline annotations on supported Microsoft 365 versions.</li>
 </ul>
 
-<p><strong>Private by design.</strong> Contract analysis runs inside the Word add-in. Contract text is not uploaded to GUT Ventures, sent to an AI provider, used for analytics, or stored by the add-in. No account, subscription, API key, or additional purchase is required. Local browser storage is used only for non-document preferences.</p>
+<p><strong>Private by design.</strong> Contract analysis runs inside the Word add-in. Contract text is not uploaded to GUT Ventures, sent to an AI provider, used for analytics, or stored by the add-in. No account, subscription, API key, or additional purchase is required.</p>
 
 <p>Contract Definitions supports English-language contracts and common definitions-section structures. Unusual or ambiguous drafting may not be detected. The add-in assists with navigation and review; it does not provide legal advice. Inline annotations require a Microsoft 365 version of Word that supports WordApi 1.7. Definition detection and navigation require WordApi 1.6.</p>
 ```

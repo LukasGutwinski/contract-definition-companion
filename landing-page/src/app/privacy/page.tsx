@@ -11,6 +11,10 @@ export const metadata: Metadata = {
 
 const cloudflareDpaUrl =
   "https://www.cloudflare.com/en-gb/cloudflare-customer-dpa/";
+const microsoftPrivacyUrl =
+  "https://privacy.microsoft.com/en-us/privacystatement";
+const austrianDsbUrl =
+  "https://dsb.gv.at/rechte-pflichten/ihre-rechte-als-betroffene-person";
 
 export default function PrivacyPolicy() {
   return (
@@ -86,7 +90,8 @@ export default function PrivacyPolicy() {
               <p>
                 The add-in does not create an account, build a user profile, or
                 collect document names, document identifiers, user identifiers, or
-                usage events for GUT Ventures.
+                usage events through the add-in for GUT Ventures. Microsoft
+                Marketplace acquisition data is addressed separately in section 6.
               </p>
             </section>
 
@@ -106,8 +111,8 @@ export default function PrivacyPolicy() {
               <h2>4. Delivery of static application files</h2>
               <p>
                 The add-in is delivered as static HTML, JavaScript, CSS, and image
-                files. We currently plan to use Cloudflare Pages as the hosting and
-                content-delivery provider. When Word retrieves these files,
+                files. GUT Ventures uses Cloudflare Pages as the hosting and
+                content-delivery provider. When Word or a browser retrieves these files,
                 Cloudflare may process technical connection data such as the IP
                 address, time of request, requested file, user agent, and security
                 information needed to deliver and protect the service.
@@ -118,9 +123,12 @@ export default function PrivacyPolicy() {
                 GDPR. GUT Ventures does not use Pages Functions, Cloudflare Web
                 Analytics, advertising cookies, or application telemetry for
                 Contract Definitions. We do not maintain a separate application log
-                of document use. Technical data is retained according to the
-                provider&apos;s service configuration and only for as long as necessary
-                for delivery, security, and legal obligations.
+                of document use and do not export Cloudflare request logs. Cloudflare
+                retains technical connection and security data according to the
+                service configuration and its contractual retention rules. GUT
+                Ventures does not keep a separate copy. The retention criterion is
+                the time required to deliver and secure the static service and meet
+                applicable legal obligations.
               </p>
               <p>
                 Cloudflare acts as a processor for service delivery and may process
@@ -130,8 +138,8 @@ export default function PrivacyPolicy() {
                   Cloudflare Data Processing Addendum
                   <ArrowUpRight aria-hidden="true" size={14} />
                 </a>
-                . This section will be updated before publication if a different
-                hosting provider is selected.
+                . Where required, the addendum provides the applicable safeguards for
+                international data transfers.
               </p>
             </section>
 
@@ -148,7 +156,44 @@ export default function PrivacyPolicy() {
             </section>
 
             <section>
-              <h2>6. Support communications</h2>
+              <h2>6. Microsoft Marketplace acquisition data</h2>
+              <p>
+                When a user acquires Contract Definitions through Microsoft
+                Marketplace, Microsoft may make lead or acquisition information
+                available to GUT Ventures in Partner Center. Depending on the
+                information associated with the Microsoft account and acquisition,
+                this may include a name, email address, telephone number, country,
+                organization, and information identifying Contract Definitions as the
+                acquired offer. No contract text or scan result is included in this
+                Marketplace data.
+              </p>
+              <p>
+                GUT Ventures does not connect a CRM system to this offer and does not
+                use the mere acquisition of Contract Definitions for unsolicited
+                marketing. We process Marketplace data only to administer the listing,
+                respond to a request, provide support, prevent abuse, and comply with
+                legal obligations. The legal basis is Article 6(1)(b) GDPR where the
+                processing concerns the service relationship, Article 6(1)(f) GDPR for
+                our legitimate interests in operating and supporting the offer, and
+                Article 6(1)(c) GDPR where processing is legally required.
+              </p>
+              <p>
+                Microsoft currently documents that Marketplace offer leads are
+                available to partners for six months and are then archived. GUT
+                Ventures does not export or retain a separate copy unless it is needed
+                to respond to a request or meet a legal obligation. Retention of
+                Microsoft&apos;s platform copy and Microsoft&apos;s own processing are governed
+                by the{" "}
+                <a href={microsoftPrivacyUrl} target="_blank" rel="noreferrer">
+                  Microsoft Privacy Statement
+                  <ArrowUpRight aria-hidden="true" size={14} />
+                </a>
+                .
+              </p>
+            </section>
+
+            <section>
+              <h2>7. Support communications</h2>
               <p>
                 If you contact us by email, we process the contact details and
                 message content you choose to provide in order to answer your
@@ -156,17 +201,26 @@ export default function PrivacyPolicy() {
                 concerns a service relationship and otherwise Article 6(1)(f) GDPR,
                 based on our legitimate interest in providing support. Do not send
                 confidential contract text; use a synthetic or anonymized example.
+                Support correspondence is deleted when it is no longer needed,
+                generally within 12 months after the request is closed, unless a longer
+                period is required by law or for the establishment, exercise, or
+                defense of legal claims.
               </p>
             </section>
 
             <section>
-              <h2>7. Your rights</h2>
+              <h2>8. Your rights</h2>
               <p>
                 Subject to the conditions of applicable law, you may request access,
                 rectification, erasure, restriction, portability, or object to
                 processing based on legitimate interests. You may also lodge a
                 complaint with a competent data protection authority. In Austria,
-                this is the Austrian Data Protection Authority.
+                this is the{" "}
+                <a href={austrianDsbUrl} target="_blank" rel="noreferrer">
+                  Austrian Data Protection Authority
+                  <ArrowUpRight aria-hidden="true" size={14} />
+                </a>
+                .
               </p>
               <p>
                 Because Contract Definitions does not transmit document content or
@@ -176,7 +230,7 @@ export default function PrivacyPolicy() {
             </section>
 
             <section>
-              <h2>8. Changes and contact</h2>
+              <h2>9. Changes and contact</h2>
               <p>
                 We will update this policy if the add-in&apos;s data flows, hosting, or
                 legal requirements change. Material changes will be reflected on
@@ -186,7 +240,7 @@ export default function PrivacyPolicy() {
                 </a>
                 .
               </p>
-              <p>Draft date: 28 August 2026.</p>
+              <p>Last updated: 5 September 2026.</p>
             </section>
           </div>
         </div>

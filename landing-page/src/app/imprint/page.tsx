@@ -9,6 +9,13 @@ export const metadata: Metadata = {
 };
 
 const gutVenturesUrl = "https://gut-ventures.com/";
+const bookingUrl = "https://calendly.com/gut-ventures/30-minutes-call";
+const tradeLawUrl =
+  "https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=Bundesnormen&Gesetzesnummer=10007517";
+const supervisoryAuthorityUrl =
+  "https://www.wien.gv.at/kontakt/magistratische-bezirksaemter";
+const chamberUrl =
+  "https://www.wko.at/wien/information-consulting/unternehmensberatung-buchhaltung-informationstechnologie/start";
 
 export default function Imprint() {
   return (
@@ -52,6 +59,10 @@ export default function Imprint() {
               <Mail aria-hidden="true" size={17} />
               lukas@gut-ventures.com
             </a>
+            <a href={bookingUrl} target="_blank" rel="noreferrer">
+              <ArrowUpRight aria-hidden="true" size={17} />
+              Online contact and appointments
+            </a>
           </aside>
 
           <div className={styles.legalDetails}>
@@ -61,8 +72,12 @@ export default function Imprint() {
                 <h2>Company details</h2>
                 <dl>
                   <div>
+                    <dt>Provider and media owner</dt>
+                    <dd>GUT Ventures GmbH</dd>
+                  </div>
+                  <div>
                     <dt>Legal form</dt>
-                    <dd>Limited liability company (GmbH)</dd>
+                    <dd>Gesellschaft mit beschränkter Haftung (GmbH)</dd>
                   </div>
                   <div>
                     <dt>Registered office</dt>
@@ -100,11 +115,67 @@ export default function Imprint() {
             <section>
               <p className={styles.sectionNumber}>03</p>
               <div>
-                <h2>Business purpose</h2>
-                <p className={styles.purpose}>
-                  Services in automatic data processing and information
-                  technology.
-                </p>
+                <h2>Business and professional information</h2>
+                <dl>
+                  <div>
+                    <dt>Business purpose and trade</dt>
+                    <dd>
+                      Services in automatic data processing and information
+                      technology
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Professional designation</dt>
+                    <dd>IT service provider</dd>
+                  </div>
+                  <div>
+                    <dt>Member state</dt>
+                    <dd>Austria</dd>
+                  </div>
+                  <div>
+                    <dt>GISA number</dt>
+                    <dd>36190508</dd>
+                  </div>
+                </dl>
+              </div>
+            </section>
+
+            <section>
+              <p className={styles.sectionNumber}>04</p>
+              <div>
+                <h2>Chamber, authority, and applicable law</h2>
+                <dl>
+                  <div>
+                    <dt>Chamber membership</dt>
+                    <dd>
+                      <a href={chamberUrl} target="_blank" rel="noreferrer">
+                        Vienna Economic Chamber, Professional Group for Management
+                        Consulting, Accounting and Information Technology
+                      </a>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Supervisory authority</dt>
+                    <dd>
+                      <a
+                        href={supervisoryAuthorityUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Magistratisches Bezirksamt des II. Bezirkes, City of
+                        Vienna
+                      </a>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Applicable professional law</dt>
+                    <dd>
+                      <a href={tradeLawUrl} target="_blank" rel="noreferrer">
+                        Austrian Trade Regulation Act 1994 (Gewerbeordnung 1994)
+                      </a>
+                    </dd>
+                  </div>
+                </dl>
               </div>
             </section>
           </div>

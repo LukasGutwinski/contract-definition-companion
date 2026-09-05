@@ -1,19 +1,20 @@
 # Notes for Microsoft certification
 
-Status: Draft. Replace all `{{...}}` placeholders and verify the steps on every declared platform before submission.
+Status: Published release record. Microsoft certification completed on 2 September 2026 and the offer is live as `WA200011925`.
 
 ## Access and dependencies
 
 - No test account, credentials, license key, tenant configuration, subscription, or external purchase is required.
 - The add-in does not use Microsoft Entra ID or single sign-on.
 - The add-in has no application backend, AI service, analytics service, or document upload endpoint.
-- Internet access is needed only to load the static add-in files from `{{IMMUTABLE_TASKPANE_URL}}` and Office.js from Microsoft's official CDN.
+- Internet access is needed only to load the static add-in files from `https://app.contract-definitions.gut-ventures.com/` and Office.js from Microsoft's official CDN.
+- The custom production URL currently serves the same tested build as the immutable Cloudflare Pages deployment `https://f4f1217a.contract-definition-companion-app.pages.dev/`. The immutable URL is retained for audit and rollback purposes.
 
 ## Sample document
 
 Use the attached synthetic document `Contract-Definitions-Demo-SPA.docx`. It contains no real persons, companies, addresses, transaction data, or commercial terms and is expressly prepared for Marketplace certification and screenshots.
 
-If Partner Center does not support attaching the document, download it from `{{PUBLIC_SAMPLE_DOCUMENT_URL}}`.
+If Partner Center does not support attaching the document, download it from `https://contract-definitions.gut-ventures.com/demo/Contract-Definitions-Demo-SPA.docx`.
 
 ## Test steps
 
@@ -47,6 +48,7 @@ The add-in requests `ReadWriteDocument` because it must read paragraph text, sel
 
 ## Support
 
-- Support page: `{{SUPPORT_URL}}`
-- Privacy policy: `{{PRIVACY_URL}}`
+- Product page: `https://contract-definitions.gut-ventures.com/`
+- Support page: `https://contract-definitions.gut-ventures.com/support/`
+- Privacy policy: `https://contract-definitions.gut-ventures.com/privacy/`
 - Support email: `lukas@gut-ventures.com`

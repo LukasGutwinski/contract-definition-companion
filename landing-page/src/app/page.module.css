@@ -1171,13 +1171,13 @@
   }
 
   .productCrop {
-    aspect-ratio: 1.28;
+    aspect-ratio: 1.16;
   }
 
   .productImage {
-    top: -13.5%;
-    left: -77%;
-    width: 205%;
+    top: -12.8%;
+    left: -63.5%;
+    width: 166%;
   }
 
   .feature {
